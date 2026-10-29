@@ -689,6 +689,7 @@
     skipGuard: {},     // url -> timestamp of last failure, prevents skip loops
     switchAt: 0,       // when the current channel switch started (startup grace / watchdog)
     playedThisSwitch: false, // current channel has actually reached 'playing'
+    playingSince: 0,   // when the current continuous run of playback began (audio-interruption guard)
     deadDeferred: false,     // a fatal error is waiting out the startup grace window
     nativeTried: false,      // this switch already used its native-HLS fallback retry
     hlsNetFails: 0,          // consecutive fatal hls.js network errors this switch
@@ -1203,6 +1204,7 @@
     // muted stream dead while it is still loading.
     state.switchAt = Date.now();
     state.playedThisSwitch = false;
+    state.playingSince = 0;
     state.deadDeferred = false;
     clearTimeout(state.watchdogTimer);
     var seq = playSeq;
@@ -1218,12 +1220,18 @@
     schedulePlayRetries(playSeq);
   }
 
-  var lastPlayAt = 0;              // timestamp of the latest play() attempt — see onAudioInterruption
+  var lastPlayAt = 0;              // timestamp of the latest play() attempt (diagnostic logging context)
   function attemptPlay(seq, why){
     if (seq !== playSeq || state.userPaused || !state.now) return;
     if (isPlaying() || playPending) return;
     lastPlayAt = Date.now();
-    armAudioInterruptions();
+    // A muted start has no audio to protect, and arming the bare
+    // AudioContext during a muted cold launch is itself an iOS
+    // startup race: the context taking / releasing the shared audio
+    // session can flip to 'interrupted' and pause the video that
+    // just started. Only arm the interruption watchdog for
+    // with-sound playback.
+    if (!video.muted) armAudioInterruptions();
     playPending = true;
     var p;
     try { p = video.play(); }
@@ -1461,6 +1469,7 @@
     clearTimeout(state.watchdogTimer);
     state.switchAt = Date.now();
     state.playedThisSwitch = false;
+    state.playingSince = 0;
     state.deadDeferred = false;
     showStageMsg('Loading ' + ch.name + '…', false);
     spinner.classList.add('on');
@@ -1498,6 +1507,7 @@
     playPending = false;
     state.switchAt = Date.now();
     state.playedThisSwitch = false;
+    state.playingSince = 0;
     state.deadDeferred = false;
     state.nativeTried = false;
     state.hlsNetFails = 0;
@@ -1675,6 +1685,12 @@
   video.addEventListener('playing', function(){
     spinner.classList.remove('on');
     showStageMsg('', false);
+    // Stamp the start of this continuous run of playback — the
+    // audio-interruption watchdog only believes an 'interrupted'
+    // flip once playback has been established for a few seconds
+    // (see onAudioInterruption). Re-stamped after a stall recovery,
+    // which just extends the protected startup window slightly.
+    state.playingSince = Date.now();
     clearTimeout(state.skipTimer);
     clearTimeout(state.watchdogTimer);
     clearPlayTimers();
@@ -1795,19 +1811,31 @@
   function onAudioInterruption(){
     if (!audioCtx || audioCtx.state !== 'interrupted') return;
     if (video.paused || video.ended || !state.now) return;
+    // Muted playback owns no audio session — an 'interrupted' flip
+    // while the launch video plays muted can never be a call taking
+    // this player's sound, so it must never pause the picture.
+    if (video.muted) return;
     // Startup race, not a phone call: the watchdog context is created
     // / resumed inside attemptPlay, in the same gesture that starts
     // the video WITH sound. On iOS the two fight over the shared
     // audio session — the moment the <video> takes the session, the
     // bare context flips to 'interrupted', and treating that flip as
-    // a call paused the very playback the user had just started
-    // (userPaused set, retry ladder killed): press one died, press
-    // two — context already settled — played. That was the other
-    // half of the two-touch load. An 'interrupted' flip landing
-    // within a few seconds of the latest play() attempt is that
-    // race; a real call interrupts ESTABLISHED playback, long after
-    // the last attempt, and still pauses exactly as before.
-    if (Date.now() - lastPlayAt < 3000) return;
+    // a call pauses the very playback the user has just started
+    // (userPaused set, retry ladder killed): press one dies, press
+    // two — context already settled — plays. An earlier guard keyed
+    // this to the time since the last play() CALL, but during a slow
+    // load that timestamp goes stale — the play() promise sits
+    // pending (so retries return early without refreshing it) while
+    // the first frame takes five-plus seconds to arrive, and the
+    // flip landed outside the window anyway: still two touches.
+    // The reliable signal is the video's own playback: only believe
+    // the flip once playback has been ESTABLISHED — running
+    // continuously for several seconds (state.playingSince, stamped
+    // by the 'playing' listener and reset on every switch). A real
+    // call interrupts established playback, long past that window,
+    // and still pauses exactly as before; every startup flip lands
+    // inside it no matter how slow the stream was.
+    if (!state.playingSince || Date.now() - state.playingSince < 5000) return;
     playLog('audio interruption began — pausing playback');
     state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
     // Same defensive re-publish as the media-session pause handler:
@@ -2111,6 +2139,9 @@
   /* ============ Buttons, gestures, misc controls ============ */
   $('tapPlay').addEventListener('click', function(){
     // A real tap — the one gesture autoplay policy always honours.
+    // Everything this press does happens HERE, synchronously, while
+    // the gesture is live; nothing is deferred to a timer, because a
+    // play() issued from a timer carries no gesture and is refused.
     state.userPaused = false;
     endBoot(true);
     hideTapPlay();
@@ -2119,44 +2150,38 @@
     // own play(), not be swallowed by an earlier promise still
     // pending from the boot attempt.
     playPending = false;
-    // Demonstrably stale element (no source, error state, no-source
-    // network state — the same test resumeRemote uses): a bare play()
-    // on it goes nowhere, so don't spend this press's gesture on one.
-    // Reload the SAME channel synchronously, right here inside the
-    // gesture, so playChannel's first play() attempt is itself
-    // gesture-backed and the channel starts on THIS press.
-    if (state.now && (!video.currentSrc || video.error || video.networkState === 3)){
-      playLog('tap-to-play: stream element is stale — reloading ' + state.now.name + ' inside the gesture');
+    if (isPlaying()) return;
+    // Decide from what the element is actually doing:
+    //   · a load is genuinely in flight (network busy fetching, or
+    //     data already buffered) — the stream is healthy and merely
+    //     waiting for permission: issue play() on it right here in
+    //     the gesture and let that load finish. Reloading would
+    //     throw away everything already fetched for nothing.
+    //   · the element is stale (no source, error state, no-source
+    //     network state) or simply idle (nothing loading, no data —
+    //     an earlier load died quietly and a bare play() on it goes
+    //     nowhere): reload the SAME channel synchronously through
+    //     the full switch path, so the fresh load's first play()
+    //     attempt is itself gesture-backed — exactly what tapping
+    //     the channel's row does, and a row tap starts on one press.
+    // There is deliberately NO timed "reload if still paused" check
+    // after this handler anymore. The previous one fired 2s after
+    // the press whenever video.paused was still true — but on the
+    // native HLS path paused stays true until the first frame
+    // renders, which on a phone connection routinely takes longer
+    // than the check, so it discarded healthy in-flight loads; and
+    // the reload it fired ran OUTSIDE the tap, so the restarted
+    // load's play() attempts were refused and the overlay came
+    // back — press one "kept loading", only press two played. A
+    // load that truly never starts is still caught — by the fresh
+    // switch's own startup watchdog, which begins with the reload.
+    var inFlight = video.networkState === 2 || video.readyState > 0;
+    var stale = !video.currentSrc || !!video.error || video.networkState === 3;
+    if (state.now && (stale || !inFlight)){
+      playLog('tap-to-play: no live load to resume — reloading ' + state.now.name + ' inside the gesture');
       if (reloadCurrentChannel()) return;
     }
     attemptPlay(playSeq, 'tap-to-play');
-    // And if the bare play() still doesn't take — the element can be
-    // left wedged by a failed earlier load (aborted / stale source)
-    // and then just sits on the spinner — reload the SAME channel
-    // once through the full switch path instead of making the user
-    // press a second time. Guarded like resumeRemote's reload: only
-    // for this exact switch, only while the channel still hasn't
-    // played, and never after a deliberate pause.
-    // The reload fires ONLY while the element is still paused — the
-    // press's play() never took. An earlier version also reloaded
-    // when play() HAD taken (paused already false) but readyState
-    // was still < 2 at the check: on native HLS over a phone
-    // connection the first frame routinely lands later than the
-    // check, so the guard discarded a healthy in-flight load and
-    // restarted it from zero — and the restarted load's own play()
-    // attempts land outside the tap gesture, get refused, and raise
-    // this overlay again. That was the two-touch load: press one
-    // "kept loading", only press two played. A slow-but-progressing
-    // load is left alone now; the startup watchdog remains its
-    // backstop.
-    var seq = playSeq;
-    setTimeout(function(){
-      if (seq !== playSeq || state.userPaused || !state.now) return;
-      if (isPlaying() || state.playedThisSwitch) return;
-      if (!video.paused) return;
-      playLog('tap-to-play did not start ' + state.now.name + ' — reloading the channel');
-      reloadCurrentChannel();
-    }, 2000);
   });
   $('soundPill').addEventListener('click', function(){
     // The muted boot stream is already playing: this tap only unmutes
@@ -3178,14 +3203,31 @@
      one tap; if even muted autoplay is refused, the rejection path
      in onPlayRejected ends at the tap-to-play overlay. */
   function bootAutoplay(){
-    if (!state.now) return;
+    // Launch ALWAYS loads a video muted — the last-played channel
+    // when there is one, otherwise the first channel of the loaded
+    // list. Earlier, several restore paths (no last channel, legacy
+    // source, cache-dropped source) returned here with state.now
+    // unset and simply never started anything, so the app opened on
+    // a "press play" frame. Pick the first channel instead of
+    // giving up.
+    if (!state.channels.length && state.allChannels.length) state.channels = state.allChannels;
+    if (!state.now){
+      if (!state.channels.length) return;
+      state.now = state.channels[0];
+      state.index = 0;
+      updateNowPlaying();
+    }
     var idx = indexOfUrl(state.channels, state.now.url);
     if (idx < 0){
       // The restored channel lives in the other view (All ⇄ Favorites).
       setView(state.view === 'favs' ? 'all' : 'favs');
       idx = indexOfUrl(state.channels, state.now.url);
     }
-    if (idx < 0) return;
+    if (idx < 0){
+      if (!state.channels.length) return;
+      state.now = state.channels[0];
+      idx = 0;
+    }
     // Muted FIRST, on purpose. The previous sound-first attempt was
     // always refused on a cold launch (autoplay policy: no gesture,
     // no sound) — and it actively wedged the first load: its play()
@@ -3200,13 +3242,44 @@
     boot.phase = 2;
     boot.muted = true;
     boot.launching = true;
+    // Muted in every form the platform checks before the source
+    // starts — the property, the default, and the attribute: some
+    // webviews only honour defaultMuted / the attribute for their
+    // autoplay decision, and a start they don't count as muted is
+    // refused without a gesture.
+    try { video.defaultMuted = true; } catch(e){}
+    try { video.setAttribute('muted', ''); } catch(e){}
     video.muted = true; // muted before the source starts — required for the muted attempt to count
-    playLog('boot autoplay: starting restored channel "' + state.now.name + '" (muted)');
+    playLog('boot autoplay: starting channel "' + state.now.name + '" muted on launch');
     playChannel(idx);
+    // Launch retry ladder for the muted start itself: some webviews
+    // drop a play() issued before the stream's first data has
+    // arrived, leaving the element paused with a pending / settled
+    // attempt and no error. Re-issue the MUTED play on the same
+    // load — no reload, no unmute — a few seconds in, but only
+    // while this same boot switch is still the current one and
+    // still hasn't played.
+    var bootSeq = playSeq;
+    [1200, 3000].forEach(function(ms){
+      setTimeout(function(){
+        if (bootSeq !== playSeq || state.userPaused || isPlaying() || !video.paused) return;
+        if (boot.phase !== 2 && boot.phase !== 3) return;
+        if (tapPlayVisible()) return;
+        video.muted = true;
+        playPending = false;
+        attemptPlay(playSeq, 'boot-muted-retry@' + ms + 'ms');
+      }, ms);
+    });
   }
 
   /* ============ Init — restore exactly what was chosen last time ============ */
   video.volume = 0.9;
+  // The launch start is muted: set it on the element before ANY
+  // source is attached, in property and default form, so the
+  // browser's autoplay decision (made when the source starts)
+  // always sees a muted player.
+  try { video.defaultMuted = true; } catch(e){}
+  video.muted = true;
   video.disablePictureInPicture = false; // iOS automatic PiP must not be blocked
   var saved = loadState();
   if (saved){
@@ -3297,8 +3370,14 @@
   if (legacySource){
     syncFavUI();
     loadBuiltinNews(false, false);
-    showStageMsg('World News loaded — tap a channel to start.', false);
-    setTimeout(function(){ if (state.index < 0) showStageMsg('', false); }, 6000);
+    // Launch loads a video muted here too (last channel when it is
+    // in the built-in list, otherwise the first channel) — this
+    // migration path used to open on a "tap a channel" frame.
+    if (saved && saved.nowUrl){
+      var li = indexOfUrl(state.allChannels, saved.nowUrl);
+      if (li >= 0){ state.now = state.allChannels[li]; state.index = li; updateNowPlaying(); }
+    }
+    bootAutoplay();
   } else if (saved && Array.isArray(saved.channels) && saved.channels.length){
     var desc = saved.sourceDesc || { kind: 'custom', label: 'Saved playlist', url: '' };
     state.allChannels = saved.channels;
@@ -3318,17 +3397,20 @@
     syncViewTabs();
     buildGroupFilter();
     renderList();
+    // No last-played channel restored (e.g. a list was loaded but
+    // nothing was ever played): launch still loads a video muted —
+    // the first channel of the restored list — instead of opening
+    // on a "tap a channel to start" frame.
+    if (!nowCh && state.channels.length) nowCh = state.channels[0];
     if (nowCh){
       state.now = nowCh;
       state.index = indexOfUrl(state.channels, nowCh.url);
       updateNowPlaying();
-    } else {
-      showStageMsg(desc.label + ' restored — tap a channel to start.', false);
     }
     syncFavUI();
     syncSourceUI();
-    // Restored last-played channel: try to start it automatically
-    // (sound first, muted + Tap-for-sound pill as the fallback).
+    // Launch: start the restored channel (or the first channel)
+    // automatically, muted — the Tap-for-sound pill offers sound.
     if (nowCh) bootAutoplay();
     setTimeout(function(){ if (state.index < 0 || !video.currentSrc) showStageMsg('', false); }, 9000);
     // Sticky online source: a playlist loaded by URL is re-fetched on
@@ -3359,9 +3441,11 @@
         state.now = state.allChannels[bi];
         state.index = bi;
         updateNowPlaying();
-        bootAutoplay();
       }
     }
+    // Muted launch load whether or not a last channel survived —
+    // bootAutoplay falls back to the first channel.
+    bootAutoplay();
   } else if (saved && saved.sourceDesc && saved.sourceDesc.url){
     // The channel cache didn't fit in browser storage — refetch the same
     // source the user chose (never silently switch to a different list).
@@ -3371,8 +3455,14 @@
     syncFavUI();
     var refetchDesc = saved.sourceDesc;
     fetchPlaylist(refetchDesc.url, refetchDesc.label, refetchDesc, false, {
+      onSuccess: function(){
+        // The refetched list is in: launch-load its first channel
+        // muted, like every other launch path.
+        bootAutoplay();
+      },
       onFail: function(){
         loadBuiltinNews(false, true);
+        bootAutoplay();
       }
     });
   } else {
