@@ -150,26 +150,22 @@
   .stage:fullscreen video, .stage:-webkit-full-screen video{object-fit:contain}
   /* On-screen controls live ONLY in the middle of the player — one
      set, in the same place in the normal and pinned (stuck) layouts,
-     so they never jump between a bottom bar and the middle. The set
-     is the three round tap buttons, plus the pinned layout's
-     mini-bar restacked as a centered middle row (its channel-name
-     meta stays in the selector bar below, so the row is buttons
-     only). Visibility is driven by the .controls-on class (see the
+     so scrolling up / down never changes them. The set is the three
+     round tap buttons spread DISTANT across the player — Previous
+     at the far left, Play/Pause in the centre, Next at the far
+     right. There is no second, close-together set: the old pinned
+     layout hid those spread-out buttons and swapped in a clustered
+     centre pill (the mini-bar), so the controls visibly changed
+     every time the player pinned / unpinned on scroll. That pill
+     is retired — .mini-bar never displays in any layout, and the
+     tap buttons stay exactly as they are when the stage pins.
+     Visibility is driven by the .controls-on class (see the
      auto-hide script): shown on load, on any touch of the player,
      and while paused; auto-hidden a few seconds after the last
      touch while a channel plays. */
   .stage.stuck .announce{padding:26px 14px 14px}
   .stage.stuck .announce .name{font-size:27px}
   .mini-bar{display:none}
-  .stage.stuck.controls-on .mini-bar{
-    display:flex; align-items:center; gap:10px;
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6;
-    max-width:calc(100% - 16px);
-    padding:8px 12px; color:#fff; border-radius:999px;
-    background:rgba(10,12,14,.66); border:1px solid rgba(255,255,255,.22);
-  }
-  .stage.stuck .tapzone{display:none}
-  .stage.stuck .mini-meta{display:none}
   .mini-btn{width:44px; height:44px; flex:none; border-radius:50%; border:1px solid rgba(255,255,255,.35); background:rgba(20,24,28,.65); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
   .mini-btn svg{width:21px; height:21px}
   .mini-btn:active{transform:scale(.94)}
@@ -188,10 +184,8 @@
   .stage .stage-fs{opacity:0; pointer-events:none; transition:opacity .25s}
   .stage.controls-on .stage-fs, .stage .stage-fs:focus-visible{opacity:1; pointer-events:auto}
   @media (prefers-reduced-motion: reduce){ .stage .stage-fs{transition:none} }
-  /* same top-right corner in the pinned layout too, just a touch
-     smaller — so this button never jumps corners either */
-  .stage.stuck .stage-fs{width:42px; height:42px; border-radius:10px}
-  .stage.stuck .stage-fs svg{width:19px; height:19px}
+  /* same top-right corner AND same size in the pinned layout too —
+     no on-video control changes size or place when the stage pins */
   .stage video{width:100%; height:100%; display:block; background:#000; object-fit:contain}
   /* middle-band tap zones: the hit area is a band across the vertical
      middle of the player instead of the full height, so the buttons
@@ -225,17 +219,14 @@
   .tapplay .tp-ic svg{width:40px; height:40px; margin-left:4px}
   .tapplay .tp-label{font-family:"Barlow Condensed",sans-serif; font-size:27px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; line-height:1}
   .tapplay .tp-name{font-size:15px; font-weight:600; color:rgba(255,255,255,.88); max-width:88%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .stage.stuck .tapplay .tp-ic{width:60px; height:60px}
-  .stage.stuck .tapplay .tp-ic svg{width:28px; height:28px}
-  .stage.stuck .tapplay .tp-label{font-size:20px}
-  .stage.stuck .tapplay .tp-name{display:none}
+  /* tap-to-play keeps the same size in the pinned layout too — no
+     on-video control changes when the stage pins / unpins */
   /* tap-for-sound pill — shown while the boot-autoplay stream is playing
      MUTED because the browser blocked sound on a cold load. One tap
      unmutes the stream that is already playing (no reload). */
   .soundpill{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:9; display:none; align-items:center; gap:8px; background:var(--accent); color:#fff; border:1px solid var(--accent-dark); border-radius:999px; padding:12px 22px; font:inherit; font-size:16px; font-weight:700; box-shadow:0 10px 26px rgba(0,0,0,.5); cursor:pointer; white-space:nowrap}
   .soundpill.on{display:inline-flex}
   .soundpill:active{transform:translateX(-50%) scale(.96)}
-  .stage.stuck .soundpill{padding:10px 17px; font-size:14px}
   .announce{
     position:absolute; left:0; right:0; bottom:0; z-index:4; pointer-events:none;
     padding:38px 18px 14px; color:#fff; opacity:0; transform:translateY(6px); transition:opacity .25s, transform .25s;
@@ -1129,15 +1120,16 @@
   var playTimers = [];
 
   /* ============ Boot autoplay state (fresh page load only) ============
-     When the page reopens with a restored last-played channel, SJTV now
-     tries to start it on its own instead of sitting paused:
-       phase 1 — with-sound attempt (video unmuted before the load);
-       phase 2 — that was refused (NotAllowedError): muted fallback;
+     When the page opens, SJTV starts the video on its own instead of
+     sitting paused behind a "press play" frame:
+       phase 2 — the boot start itself: muted autoplay, the one start
+         autoplay policy permits on a cold launch (a with-sound
+         attempt — the old phase 1 — is refused without a gesture;
+         its rejection path is still handled, as a fallback);
        phase 3 — playing muted: the 🔊 Tap-for-sound pill is up.
      Any later manual action (channel switch, explicit play, pill tap,
      unmute by any route) ends the boot state — see endBoot(). Boot runs
-     ONLY from the init restore path, never on a channel switch, and
-     never when there is no restored channel. */
+     ONLY from the init paths, never on a channel switch. */
   var boot = { phase: 0, muted: false, launching: false };
 
   function playLog(msg){ try { console.log('[SJTV] ' + msg); } catch(e){} }
@@ -1204,6 +1196,21 @@
     boot.muted = true;
     video.muted = true;
     playLog('boot autoplay: with-sound play blocked — falling back to muted autoplay');
+    // The re-attach below restarts the load from zero, so the startup
+    // clock restarts with it (the same reset fallbackToNative does):
+    // otherwise the original switch's grace window / watchdog, still
+    // measured from the refused with-sound attempt, can declare the
+    // muted stream dead while it is still loading.
+    state.switchAt = Date.now();
+    state.playedThisSwitch = false;
+    state.deadDeferred = false;
+    clearTimeout(state.watchdogTimer);
+    var seq = playSeq;
+    state.watchdogTimer = setTimeout(function(){
+      if (seq !== playSeq || state.userPaused || state.playedThisSwitch || isPlaying()) return;
+      if (tapPlayVisible()) return;
+      onStreamDead('Stream did not start');
+    }, STARTUP_WATCHDOG_MS);
     if (!state.hls && state.now){
       try { video.src = state.now.url; video.load(); } catch(e){}
     }
@@ -1211,9 +1218,11 @@
     schedulePlayRetries(playSeq);
   }
 
+  var lastPlayAt = 0;              // timestamp of the latest play() attempt — see onAudioInterruption
   function attemptPlay(seq, why){
     if (seq !== playSeq || state.userPaused || !state.now) return;
     if (isPlaying() || playPending) return;
+    lastPlayAt = Date.now();
     armAudioInterruptions();
     playPending = true;
     var p;
@@ -1530,6 +1539,11 @@
       hls.on(Hls.Events.ERROR, function(evt, data){ onHlsError(data); });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')){
       video.src = ch.url;
+      // Explicit load(), matching the other two native attach sites
+      // (fallbackToNative, the muted-boot re-attach): on a WKWebView
+      // element left emptied by an earlier teardown, a bare src
+      // assignment can sit unloaded; load() starts the fetch now.
+      try { video.load(); } catch(e){}
     } else {
       showStageMsg('This browser cannot play HLS streams.', true);
       spinner.classList.remove('on');
@@ -1568,6 +1582,13 @@
     // An explicit play action ends any muted boot state: resuming is a
     // user gesture, so playback continues WITH sound.
     endBoot(true);
+    // A play() promise from an earlier attempt can still be pending
+    // while a slow stream loads, and attemptPlay treats a pending
+    // promise as "already trying" and does nothing — so the user's
+    // first press was swallowed and only the second press played.
+    // resumeRemote() already resets the flag for remote presses; do
+    // the same here so every on-screen press issues its own play().
+    playPending = false;
     // Resume actions (play button, media-key play, first tap
     // anywhere) go through the same play engine as a channel switch.
     // Restored session with nothing loaded yet: a bare play() would hit
@@ -1700,6 +1721,27 @@
   // instead of relying on the single early attempt.
   video.addEventListener('loadedmetadata', function(){ attemptPlay(playSeq, 'loadedmetadata'); });
   video.addEventListener('canplay', function(){ attemptPlay(playSeq, 'canplay'); });
+  /* The play/pause icon and the Loading… label follow the element's
+     REAL state, not just the 'playing' milestone — on slow-starting
+     streams the two visibly disagreed with the picture:
+       · updatePlayIcon ran only on 'playing' / 'pause', so between
+         play() taking effect and the 'playing' event (the whole
+         startup / stall window) the center button kept the stale ▶
+         it was initialised with, then flipped to ❚❚ late — and a
+         stall cycle flipped it back and forth over a picture that
+         was already up. The 'play' event fires the moment paused
+         flips to false, so the icon updates there too.
+       · the "Loading <channel>…" message (and the spinner) cleared
+         only on 'playing', so a stream whose first frames were
+         already on screen kept the Loading… label over the picture
+         for seconds. First frame data with play requested ('canplay'
+         while not paused) is the honest point to clear it; a later
+         stall brings the SPINNER back via 'waiting' without
+         resurrecting the Loading… text over the picture. */
+  video.addEventListener('play', updatePlayIcon);
+  video.addEventListener('canplay', function(){
+    if (!video.paused){ showStageMsg('', false); spinner.classList.remove('on'); }
+  });
   video.addEventListener('waiting', function(){ spinner.classList.add('on'); });
   video.addEventListener('pause', function(){
     updatePlayIcon();
@@ -1753,6 +1795,19 @@
   function onAudioInterruption(){
     if (!audioCtx || audioCtx.state !== 'interrupted') return;
     if (video.paused || video.ended || !state.now) return;
+    // Startup race, not a phone call: the watchdog context is created
+    // / resumed inside attemptPlay, in the same gesture that starts
+    // the video WITH sound. On iOS the two fight over the shared
+    // audio session — the moment the <video> takes the session, the
+    // bare context flips to 'interrupted', and treating that flip as
+    // a call paused the very playback the user had just started
+    // (userPaused set, retry ladder killed): press one died, press
+    // two — context already settled — played. That was the other
+    // half of the two-touch load. An 'interrupted' flip landing
+    // within a few seconds of the latest play() attempt is that
+    // race; a real call interrupts ESTABLISHED playback, long after
+    // the last attempt, and still pauses exactly as before.
+    if (Date.now() - lastPlayAt < 3000) return;
     playLog('audio interruption began — pausing playback');
     state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
     // Same defensive re-publish as the media-session pause handler:
@@ -2060,7 +2115,48 @@
     endBoot(true);
     hideTapPlay();
     spinner.classList.add('on');
+    // Same stale-promise reset as tryPlay: this press must issue its
+    // own play(), not be swallowed by an earlier promise still
+    // pending from the boot attempt.
+    playPending = false;
+    // Demonstrably stale element (no source, error state, no-source
+    // network state — the same test resumeRemote uses): a bare play()
+    // on it goes nowhere, so don't spend this press's gesture on one.
+    // Reload the SAME channel synchronously, right here inside the
+    // gesture, so playChannel's first play() attempt is itself
+    // gesture-backed and the channel starts on THIS press.
+    if (state.now && (!video.currentSrc || video.error || video.networkState === 3)){
+      playLog('tap-to-play: stream element is stale — reloading ' + state.now.name + ' inside the gesture');
+      if (reloadCurrentChannel()) return;
+    }
     attemptPlay(playSeq, 'tap-to-play');
+    // And if the bare play() still doesn't take — the element can be
+    // left wedged by a failed earlier load (aborted / stale source)
+    // and then just sits on the spinner — reload the SAME channel
+    // once through the full switch path instead of making the user
+    // press a second time. Guarded like resumeRemote's reload: only
+    // for this exact switch, only while the channel still hasn't
+    // played, and never after a deliberate pause.
+    // The reload fires ONLY while the element is still paused — the
+    // press's play() never took. An earlier version also reloaded
+    // when play() HAD taken (paused already false) but readyState
+    // was still < 2 at the check: on native HLS over a phone
+    // connection the first frame routinely lands later than the
+    // check, so the guard discarded a healthy in-flight load and
+    // restarted it from zero — and the restarted load's own play()
+    // attempts land outside the tap gesture, get refused, and raise
+    // this overlay again. That was the two-touch load: press one
+    // "kept loading", only press two played. A slow-but-progressing
+    // load is left alone now; the startup watchdog remains its
+    // backstop.
+    var seq = playSeq;
+    setTimeout(function(){
+      if (seq !== playSeq || state.userPaused || !state.now) return;
+      if (isPlaying() || state.playedThisSwitch) return;
+      if (!video.paused) return;
+      playLog('tap-to-play did not start ' + state.now.name + ' — reloading the channel');
+      reloadCurrentChannel();
+    }, 2000);
   });
   $('soundPill').addEventListener('click', function(){
     // The muted boot stream is already playing: this tap only unmutes
@@ -2078,13 +2174,15 @@
   stage.addEventListener('dblclick', function(){ toggleFullscreen(); });
 
   /* ============ On-screen controls — middle only, auto-hide ============
-     One set of controls, always in the middle of the player: the
-     three round tap buttons in the normal layout, the mini-bar
-     restacked as a centered row in the pinned (stuck) layout — never
-     a bottom bar, so the controls can't jump between the bottom line
-     and the middle when the player pins / unpins on scroll. They
-     show on load and whenever the player is touched (or the mouse
-     moves over it), then auto-hide 3s after the last touch while a
+     One set of controls, always in the middle of the player, in
+     BOTH the normal and the pinned (stuck) layouts: the three
+     round tap buttons spread distant across the player — Previous
+     far left, Play/Pause centre, Next far right. Scrolling up /
+     down pins and unpins the stage but never swaps, moves or
+     resizes this set — the old close-together centre pill that
+     used to appear in the pinned layout is gone. They show on
+     load and whenever the player is touched (or the mouse moves
+     over it), then auto-hide 3s after the last touch while a
      channel plays; while paused they stay up. Hidden controls have
      pointer-events off, so the touch that reveals them lands on the
      stage itself and never also skips a channel or toggles play. */
@@ -2387,8 +2485,8 @@
   /* Explicit pinned size: the stage gets a width AND height pair that
      already honors the viewport-height cap (64% normally; 88% in a
      short landscape viewport, where 64% of an already-collapsed
-     height would leave a stamp-sized player and the mini-bar no room
-     for the channel name). Setting both dimensions inline is what
+     height would leave a stamp-sized player with no room for its
+     controls). Setting both dimensions inline is what
      stops WebKit re-solving aspect-ratio against a CSS max-height
      and shrinking the box — the landscape bug. When the cap trims
      the width, the stage stays centered in its column. */
@@ -3069,13 +3167,16 @@
     ta.remove();
   }
 
-  /* ============ Boot autoplay — fresh page load, restored channel only ============
-     Called from init ONLY when a last-played channel was restored
-     from a previous session. Loads it through the normal playChannel
-     engine and tries WITH SOUND first; the rejection path in
-     onPlayRejected climbs the rest of the ladder (muted autoplay +
-     Tap-for-sound pill, then the tap-to-play overlay). First-ever
-     loads (no saved channel) never call this — the list just shows. */
+  /* ============ Boot autoplay — fresh page load ============
+     Called from init when a last-played channel was restored from a
+     previous session, and on a first-ever load for the built-in
+     list's first channel. Loads the channel through the normal
+     playChannel engine and starts it MUTED — the one start every
+     browser's autoplay policy permits on a cold launch with no user
+     gesture — so the video is already loading / playing when the app
+     opens. The Tap-for-sound pill (phase 3) then offers sound with
+     one tap; if even muted autoplay is refused, the rejection path
+     in onPlayRejected ends at the tap-to-play overlay. */
   function bootAutoplay(){
     if (!state.now) return;
     var idx = indexOfUrl(state.channels, state.now.url);
@@ -3085,10 +3186,22 @@
       idx = indexOfUrl(state.channels, state.now.url);
     }
     if (idx < 0) return;
-    boot.phase = 1;
+    // Muted FIRST, on purpose. The previous sound-first attempt was
+    // always refused on a cold launch (autoplay policy: no gesture,
+    // no sound) — and it actively wedged the first load: its play()
+    // promise stayed pending while the slow stream loaded, so
+    // attemptPlay's playPending gate swallowed every retry AND the
+    // user's first press on "tap to play" (only the second press,
+    // after the promise finally settled, issued a real play()); and
+    // its rejection re-attached the source from scratch for the
+    // muted fallback, discarding whatever had already buffered.
+    // Going straight to the permitted muted start removes the whole
+    // chain: no doomed promise, no re-attach, video starts at launch.
+    boot.phase = 2;
+    boot.muted = true;
     boot.launching = true;
-    video.muted = false; // with-sound attempt: unmuted before the source starts
-    playLog('boot autoplay: starting restored channel "' + state.now.name + '"');
+    video.muted = true; // muted before the source starts — required for the muted attempt to count
+    playLog('boot autoplay: starting restored channel "' + state.now.name + '" (muted)');
     playChannel(idx);
   }
 
@@ -3263,10 +3376,18 @@
       }
     });
   } else {
-    // First-ever load (or nothing restorable): default to the built-in World News list.
+    // First-ever load (or nothing restorable): default to the built-in
+    // World News list AND start its first channel through the same
+    // muted boot ladder a restored session uses for its last channel —
+    // the video loads when the app launches instead of waiting behind
+    // a "tap a channel to start" frame.
     loadBuiltinNews(false, false);
-    showStageMsg('World News loaded — tap a channel to start.', false);
-    setTimeout(function(){ if (state.index < 0) showStageMsg('', false); }, 6000);
+    if (state.allChannels.length){
+      state.now = state.allChannels[0];
+      state.index = 0;
+      updateNowPlaying();
+      bootAutoplay();
+    }
   }
 })();
 </script>
