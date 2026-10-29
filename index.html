@@ -1118,6 +1118,13 @@
   var STARTUP_WATCHDOG_MS = 12000; // no playback and no error by now → treat the stream as dead
   var playSeq = 0;                 // bumped on every switch and deliberate pause; stale retries check it
   var playPending = false;         // a play() promise for the current switch hasn't settled yet
+  var playPendingAt = 0;           // when the pending play() was issued — WebKit can leave one
+                                   // unsettled indefinitely on a slow native load, so a pending
+                                   // promise only suppresses retries while it is fresh (see
+                                   // attemptPlay); an old one must not gate later attempts
+  var playAttemptSeq = 0;          // token per play() issue: a superseded attempt's late
+                                   // settle (esp. an AbortError from a load() re-kick) must
+                                   // not clear a newer attempt's flag or run rejection logic
   var playTimers = [];
 
   /* ============ Boot autoplay state (fresh page load only) ============
@@ -1223,7 +1230,22 @@
   var lastPlayAt = 0;              // timestamp of the latest play() attempt (diagnostic logging context)
   function attemptPlay(seq, why){
     if (seq !== playSeq || state.userPaused || !state.now) return;
-    if (isPlaying() || playPending) return;
+    if (isPlaying()) return;
+    // A still-pending play() used to suppress EVERY later attempt until
+    // it settled — and on WebKit (the native HLS path: iPhone / iPad /
+    // Mac Safari, the Muse app's webview) a play() issued before the
+    // stream's first data can stay pending indefinitely without ever
+    // starting playback: the promise neither resolves nor rejects, so
+    // the loadedmetadata / canplay retries and the whole retry ladder
+    // were swallowed behind it and the launch sat on a paused frame
+    // until a tap (whose handler force-resets the flag) issued a fresh
+    // play(). Chromium settles such promises promptly, which is why
+    // the muted launch start worked there but not on iOS. A pending
+    // attempt now only suppresses retries while it is fresh (1.2s);
+    // past that, a new play() is issued alongside it — overlapping
+    // play() calls are legal, and the token below keeps the older
+    // attempt's late settle from disturbing the newer one.
+    if (playPending && Date.now() - playPendingAt < 1200) return;
     lastPlayAt = Date.now();
     // A muted start has no audio to protect, and arming the bare
     // AudioContext during a muted cold launch is itself an iOS
@@ -1233,19 +1255,27 @@
     // with-sound playback.
     if (!video.muted) armAudioInterruptions();
     playPending = true;
+    playPendingAt = Date.now();
+    var token = ++playAttemptSeq;
     var p;
     try { p = video.play(); }
-    catch(e){ playPending = false; onPlayRejected(seq, e, why); return; }
+    catch(e){
+      if (token === playAttemptSeq){ playPending = false; playPendingAt = 0; }
+      onPlayRejected(seq, e, why);
+      return;
+    }
     if (p && typeof p.then === 'function'){
       p.then(function(){
-        playPending = false;
+        if (token !== playAttemptSeq) return; // superseded — a newer attempt owns the flag
+        playPending = false; playPendingAt = 0;
         if (seq === playSeq && !video.paused) hideTapPlay();
       }, function(err){
-        playPending = false;
+        if (token !== playAttemptSeq) return; // superseded — its rejection is not news
+        playPending = false; playPendingAt = 0;
         onPlayRejected(seq, err, why);
       });
     } else {
-      playPending = false;
+      playPending = false; playPendingAt = 0;
     }
   }
   function onPlayRejected(seq, err, why){
@@ -1567,6 +1597,41 @@
     // load events keep re-trying until the channel is actually playing.
     attemptPlay(seq, 'switch');
     schedulePlayRetries(seq);
+    // Native-path stall re-kick (WKWebView / Safari): the native
+    // resource selection can wedge before metadata — a source is set
+    // and play() was issued, yet seconds later the element still has
+    // readyState 0 with the network IDLE (not loading, no error):
+    // the selection stalled and no event will ever fire to retry.
+    // One load() re-kick restarts the selection, and the load-event
+    // attempts plus a fresh play() then start it — the native
+    // equivalent of the pressure hls.js applies on its own path.
+    // Strictly one-shot per switch and conservative: an actively
+    // loading network (a merely slow stream), an element that
+    // already has data, an errored element and the hls.js path are
+    // all left exactly as they are, and a visible tap-to-play
+    // overlay (autoplay refused outright) is never fought.
+    playTimers.push(setTimeout(function(){
+      if (seq !== playSeq || state.userPaused || state.playedThisSwitch || isPlaying()) return;
+      if (state.hls || !video.currentSrc || video.error || tapPlayVisible()) return;
+      if (video.readyState !== 0 || video.networkState === 2) return;
+      playLog('native load stalled before metadata — re-kicking load() for ' + ch.name);
+      playPending = false; playPendingAt = 0;
+      // The re-kick restarts the load from zero, so the startup
+      // clock restarts with it (the same reset fallbackToNative and
+      // the muted-boot re-attach do): otherwise the original
+      // switch's watchdog can declare the re-kicked load dead while
+      // it is still starting.
+      state.switchAt = Date.now();
+      state.deadDeferred = false;
+      clearTimeout(state.watchdogTimer);
+      state.watchdogTimer = setTimeout(function(){
+        if (seq !== playSeq || state.userPaused || state.playedThisSwitch || isPlaying()) return;
+        if (tapPlayVisible()) return;
+        onStreamDead('Stream did not start');
+      }, STARTUP_WATCHDOG_MS);
+      try { video.load(); } catch(e){}
+      attemptPlay(seq, 'stall-rekick');
+    }, 6000));
     // Startup watchdog: a stream that produces neither playback nor a
     // fatal error inside the window counts as dead (auto-skip rules
     // apply) — unless autoplay is blocked, which is the overlay's job,
@@ -3256,20 +3321,29 @@
     // drop a play() issued before the stream's first data has
     // arrived, leaving the element paused with a pending / settled
     // attempt and no error. Re-issue the MUTED play on the same
-    // load — no reload, no unmute — a few seconds in, but only
-    // while this same boot switch is still the current one and
-    // still hasn't played.
+    // load — no reload, no unmute — until the boot stream is
+    // actually playing. The old ladder stopped after two shots
+    // (1.2s / 3s); on a phone connection the first frame of a live
+    // stream routinely takes longer than that, and once the ladder
+    // ended nothing ever pressed play again — the launch sat paused
+    // behind the play button until a tap. The ladder now keeps a
+    // gentle 2s pressure for up to 20s, stopping the moment
+    // playback starts, the boot ends, the user pauses or switches,
+    // or the tap-to-play overlay takes over (autoplay refused
+    // outright — retrying cannot change that verdict).
     var bootSeq = playSeq;
-    [1200, 3000].forEach(function(ms){
-      setTimeout(function(){
-        if (bootSeq !== playSeq || state.userPaused || isPlaying() || !video.paused) return;
-        if (boot.phase !== 2 && boot.phase !== 3) return;
-        if (tapPlayVisible()) return;
-        video.muted = true;
-        playPending = false;
-        attemptPlay(playSeq, 'boot-muted-retry@' + ms + 'ms');
-      }, ms);
-    });
+    var bootRetryAt = 0;
+    var bootRetryTimer = setInterval(function(){
+      bootRetryAt += 2000;
+      if (bootSeq !== playSeq || state.userPaused || !video.paused ||
+          boot.phase !== 2 || tapPlayVisible() || bootRetryAt > 20000){
+        clearInterval(bootRetryTimer);
+        return;
+      }
+      video.muted = true;
+      playPending = false; playPendingAt = 0;
+      attemptPlay(playSeq, 'boot-muted-retry@' + bootRetryAt + 'ms');
+    }, 2000);
   }
 
   /* ============ Init — restore exactly what was chosen last time ============ */
