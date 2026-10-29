@@ -1636,6 +1636,42 @@
         declarativeBootAttach = true;
         playLog('boot: native declarative autoplay attach for ' + ch.name);
         try { video.load(); } catch(e){}
+        // Boot wedge-breaker: if the declarative start has produced
+        // NOTHING after 4s — element still paused with zero data —
+        // the native selection is wedged, and no existing guard would
+        // ever restart it: the 6s stall re-kick below exempts any
+        // element reporting NETWORK_LOADING, which is exactly the
+        // state a wedged iOS load reports forever while delivering
+        // nothing (Chromium never wedges this way — its loads either
+        // progress or error — which is why muted launch worked on
+        // Android / Tesla while Safari sat on a frozen frame through
+        // every previous fix). Restart the SAME channel once, via the
+        // src-property attach the gesture-backed switch path uses,
+        // still muted, and restart the startup clock with it (the
+        // same reset the re-kick performs) so the restarted load gets
+        // a full watchdog window. Stands down the moment anything
+        // plays, errors, the user interacts (their taps own recovery
+        // from there), pauses deliberately, or switches away — and it
+        // is armed only for this boot attach, never for switches.
+        playTimers.push(setTimeout(function(){
+          if (seq !== playSeq || state.userPaused || state.interacted) return;
+          if (boot.phase !== 2 || !state.now || state.now !== ch) return;
+          if (isPlaying() || !video.paused || video.readyState !== 0 || video.error) return;
+          playLog('boot: declarative launch wedged before any data — restarting ' + ch.name + ' via src attach');
+          while (video.firstChild) video.removeChild(video.firstChild);
+          video.muted = true;
+          video.src = ch.url;
+          state.switchAt = Date.now();
+          state.deadDeferred = false;
+          clearTimeout(state.watchdogTimer);
+          state.watchdogTimer = setTimeout(function(){
+            if (seq !== playSeq || state.userPaused || state.playedThisSwitch || isPlaying()) return;
+            if (tapPlayVisible()) return;
+            onStreamDead('Stream did not start');
+          }, STARTUP_WATCHDOG_MS);
+          try { video.load(); } catch(e){}
+          attemptPlay(seq, 'boot-wedge-restart');
+        }, 4000));
       } else {
         // Channel switch (a gesture-backed start — this path works):
         // drop any <source> children left by a boot attach so the
@@ -1742,6 +1778,25 @@
     // the same empty-element dead end as the on-screen ▶ — route through
     // togglePlay so the last channel actually gets loaded.
     if (!video.currentSrc && state.now){ togglePlay(); return; }
+    // Wedged native load (Safari / WebKit): the launch channel is
+    // attached and this switch has never played, the element still
+    // holds zero data seconds later, and the user is pressing play —
+    // a bare play() on that element goes nowhere (the load is
+    // wedged / suspended; see the tap-to-play handler's nativeNoData
+    // note), which is why the FIRST press on the centre ▶ only
+    // "kept loading" and a later press — on an element iOS had since
+    // idled — was the one that worked. Reload the same channel HERE,
+    // inside the press, so the fresh load's first play() attempt is
+    // gesture-backed. The age guard keeps a healthy fresh load
+    // (< 2.5s old, or any switch that has already played) on the
+    // plain attemptPlay path exactly as before, and the hls.js path
+    // is untouched.
+    if (!state.hls && video.paused && !video.error && video.readyState === 0 &&
+        !state.playedThisSwitch && state.switchAt && (Date.now() - state.switchAt > 2500) &&
+        state.now){
+      playLog('resume press on a wedged native load — reloading ' + state.now.name + ' inside the gesture');
+      if (reloadCurrentChannel()) return;
+    }
     attemptPlay(playSeq, 'resume');
   }
 
@@ -2352,7 +2407,20 @@
     // switch's own startup watchdog, which begins with the reload.
     var inFlight = video.networkState === 2 || video.readyState > 0;
     var stale = !video.currentSrc || !!video.error || video.networkState === 3;
-    if (state.now && (stale || !inFlight)){
+    // Native path (Safari / WebKit) with NO data at all: networkState
+    // cannot be trusted as "healthy load in flight" there — a native
+    // HLS element whose launch load wedged or was suspended by iOS
+    // sits at readyState 0 while still reporting NETWORK_LOADING
+    // indefinitely, so the in-flight test above waved the first press
+    // through to a bare play() on a load that was never going to
+    // deliver a frame ("press it, keeps loading"), and only a later
+    // press — after iOS finally idled the element — reloaded. A
+    // native element holding zero data when the user taps is not a
+    // load worth preserving: reload it inside this gesture, like the
+    // stale case. The hls.js path keeps the networkState test exactly
+    // as it was — Chromium reports it honestly there.
+    var nativeNoData = !state.hls && video.readyState === 0;
+    if (state.now && (stale || !inFlight || nativeNoData)){
       playLog('tap-to-play: no live load to resume — reloading ' + state.now.name + ' inside the gesture');
       if (reloadCurrentChannel()) return;
     }
@@ -2759,7 +2827,31 @@
   $('miniPlay').addEventListener('click', function(){ togglePlay(); showControls(); });
   $('miniBar').addEventListener('dblclick', function(e){ e.stopPropagation(); });
 
-  /* Autoplay policy: start muted; first tap/click anywhere unmutes for the session */
+  /* Autoplay policy: start muted; first tap/click anywhere unmutes for the session.
+     WHICH event carries that first interaction matters on WebKit — the
+     root of the persistent "needs 2 touches on iPhone Safari" bug that
+     survived every launch fix: this used to run on pointerdown, where
+     it UNMUTED the still-loading boot stream and issued a play() a
+     moment before the tap's own click handler ran. Chromium treats
+     pointerdown as full transient activation, so the sequence was
+     harmless there (muted launch + first tap both work on Android /
+     Tesla). WebKit does not honour pointerdown as a media gesture:
+     the unmute landed on a PENDING muted start with no gesture the
+     media engine counts — and an unmute without a gesture is exactly
+     what makes WebKit suspend an autoplay start — while the play()
+     issued there was refused / left pending, so the tap's click
+     played into a suspended load ("press it, keeps loading"). The
+     second touch worked because state.interacted was already set:
+     no pointerdown interference, and the click handler's own play()
+     ran on a settled element. So:
+       · pointerdown now ONLY unmutes a video that is ALREADY playing
+         (the tap-for-sound-anywhere convenience — unmuting running
+         playback is safe) and otherwise leaves the pending start
+         strictly alone: no unmute, no play(), no interacted flag.
+       · the full first-interaction (mark, unmute, start-if-paused)
+         runs on click — after the tapped control's own handler, whose
+         start attempt the play gates dedupe — because click is the
+         one gesture every media engine, WebKit included, honours. */
   function firstInteraction(){
     if (state.interacted) return;
     state.interacted = true;
@@ -2767,7 +2859,13 @@
     video.volume = 0.9;
     if (state.index >= 0 && video.paused && !state.userPaused) tryPlay();
   }
-  document.addEventListener('pointerdown', firstInteraction);
+  document.addEventListener('pointerdown', function(){
+    if (state.interacted || !isPlaying()) return;
+    state.interacted = true;
+    video.muted = false;
+    video.volume = 0.9;
+  });
+  document.addEventListener('click', firstInteraction);
   document.addEventListener('keydown', firstInteraction);
 
   /* ============ Wake lock ============ */
