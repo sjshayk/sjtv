@@ -2303,35 +2303,69 @@
      steering-wheel / media buttons as key events instead of Media
      Session actions, and the vocabulary varies by platform: discrete
      MediaPlay / MediaPause keys, the legacy MediaNextTrack /
-     MediaPreviousTrack names, or no usable key name at all — just
-     the legacy keyCode (176 next, 177 previous, 178 stop, 179
-     play/pause). All of them are recognized here and routed through
-     the same remote paths as the Media Session handlers, launch
-     mute preserved (remoteKeepMuted) for the same reason. */
-  document.addEventListener('keydown', function(e){
-    var tag = (e.target && e.target.tagName) || '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+     MediaPreviousTrack names, TV-remote ChannelUp / ChannelDown and
+     MediaChannelNext / MediaChannelPrevious, the arrow keys (the
+     Tesla wheel's left/right tilt), or no usable key name at all —
+     just the legacy keyCode (176 next, 177 previous, 178 stop, 179
+     play/pause, 37 / 39 arrows). All of them are recognized here and
+     routed through the same remote paths as the Media Session
+     handlers, launch mute preserved (remoteKeepMuted) for the same
+     reason — the arrow keys included: they used to call
+     nextChannel() / prevChannel() WITHOUT the flag, so a tilt took
+     the unmute-before-play path and the car browser refused the
+     with-sound start, exactly as the media keys once did.
+     Every key this handler acts on is marked on the event object
+     (__sjtvRemoteHandled): the keydown first-interaction listener
+     below skips marked events, because unmuting in the same event
+     as a remote start undoes it (see that listener's note), and the
+     window-level copy of this handler (some embedded / car browsers
+     dispatch key events at window, never through document) uses the
+     same mark to avoid acting twice on one press. True media keys
+     are handled even when a text field still has focus — a steering
+     press is never text editing, and focus left sitting in the
+     search / URL field must not mute the wheel; the field keeps all
+     its ordinary keys, arrows and space included. */
+  function onRemoteKey(e){
+    if (!e || e.__sjtvRemoteHandled) return;
     var key = e.key, code = e.code;
     var mediaName = key || code || '';
     if ((key === 'Unidentified' || !key) && (e.keyCode || e.which)){
       var kc = e.keyCode || e.which;
       mediaName = kc === 176 ? 'MediaTrackNext' : kc === 177 ? 'MediaTrackPrevious'
-        : kc === 178 ? 'MediaStop' : kc === 179 ? 'MediaPlayPause' : mediaName;
+        : kc === 178 ? 'MediaStop' : kc === 179 ? 'MediaPlayPause'
+        : kc === 39 ? 'ArrowRight' : kc === 37 ? 'ArrowLeft' : mediaName;
+      if (mediaName === 'ArrowRight') key = 'ArrowRight';
+      if (mediaName === 'ArrowLeft') key = 'ArrowLeft';
     }
-    if (mediaName === 'MediaPlay'){ e.preventDefault(); resumeRemote(); }
-    else if (mediaName === 'MediaPause'){ e.preventDefault(); pauseDeliberately(); updatePlayIcon(); }
-    else if (mediaName === 'MediaStop'){ e.preventDefault(); pauseDeliberately(); updatePlayIcon(); }
+    var isMediaKey = mediaName === 'MediaPlay' || mediaName === 'MediaPause' ||
+      mediaName === 'MediaStop' || mediaName === 'MediaPlayPause' ||
+      mediaName === 'MediaTrackNext' || mediaName === 'MediaNextTrack' ||
+      mediaName === 'MediaTrackPrevious' || mediaName === 'MediaPreviousTrack' ||
+      mediaName === 'MediaFastForward' || mediaName === 'MediaRewind' ||
+      mediaName === 'MediaChannelNext' || mediaName === 'MediaChannelPrevious' ||
+      mediaName === 'ChannelUp' || mediaName === 'ChannelDown' ||
+      mediaName === 'NextTrack' || mediaName === 'PrevTrack' || mediaName === 'MediaPrevTrack';
+    var tag = (e.target && e.target.tagName) || '';
+    if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && !isMediaKey) return;
+    function handled(){ e.__sjtvRemoteHandled = true; e.preventDefault(); }
+    if (mediaName === 'MediaPlay'){ handled(); resumeRemote(); }
+    else if (mediaName === 'MediaPause' || mediaName === 'MediaStop'){ handled(); pauseDeliberately(); updatePlayIcon(); }
     else if (mediaName === 'MediaTrackNext' || mediaName === 'MediaNextTrack' ||
-             mediaName === 'MediaFastForward'){ e.preventDefault(); remoteKeepMuted = true; nextChannel(); }
+             mediaName === 'MediaFastForward' || mediaName === 'MediaChannelNext' ||
+             mediaName === 'ChannelUp' || mediaName === 'NextTrack'){ handled(); remoteKeepMuted = true; nextChannel(); }
     else if (mediaName === 'MediaTrackPrevious' || mediaName === 'MediaPreviousTrack' ||
-             mediaName === 'MediaRewind'){ e.preventDefault(); remoteKeepMuted = true; prevChannel(); }
-    else if (mediaName === 'MediaPlayPause'){ e.preventDefault(); if (video.paused) resumeRemote(); else togglePlay(); }
-    else if (key === 'ArrowRight' || key === '.'){ e.preventDefault(); nextChannel(); }
-    else if (key === 'ArrowLeft' || key === ','){ e.preventDefault(); prevChannel(); }
-    else if (key === ' ' || key === 'k'){ e.preventDefault(); togglePlay(); }
+             mediaName === 'MediaRewind' || mediaName === 'MediaChannelPrevious' ||
+             mediaName === 'ChannelDown' || mediaName === 'PrevTrack' ||
+             mediaName === 'MediaPrevTrack'){ handled(); remoteKeepMuted = true; prevChannel(); }
+    else if (mediaName === 'MediaPlayPause'){ handled(); if (video.paused) resumeRemote(); else { pauseDeliberately(); updatePlayIcon(); } }
+    else if (key === 'ArrowRight' || key === '.'){ handled(); remoteKeepMuted = true; nextChannel(); }
+    else if (key === 'ArrowLeft' || key === ','){ handled(); remoteKeepMuted = true; prevChannel(); }
+    else if (key === ' ' || key === 'k'){ handled(); if (video.paused) resumeRemote(); else { pauseDeliberately(); updatePlayIcon(); } }
     else if (key === 'Escape'){ if (chanPanelOpen()){ e.preventDefault(); setChanPanel(false); } }
     else if (key === 'f'){ toggleFullscreen(); }
-  });
+  }
+  document.addEventListener('keydown', onRemoteKey);
+  window.addEventListener('keydown', onRemoteKey);
 
   /* ============ Zoom lock — fit-to-screen, no page zoom ============
      The player is fluid and sized to be used as-is, and page zoom is off
@@ -2866,7 +2900,25 @@
     video.volume = 0.9;
   });
   document.addEventListener('click', firstInteraction);
-  document.addEventListener('keydown', firstInteraction);
+  document.addEventListener('keydown', function(e){
+    /* A key the remote handler just acted on (steering wheel / media
+       key) is NOT a first interaction. This listener runs after
+       onRemoteKey in the same dispatch, and falling through to
+       firstInteraction() here unmuted — in that same event — the
+       muted start the remote handler had just made: a script unmute
+       of a just-started muted stream, from a press the media engine
+       does not count as a page gesture, is exactly what Chromium-
+       based car browsers answer by pausing the video. Resume and
+       channel switches from the Tesla wheel therefore started muted
+       and were instantly unmuted-and-paused — press did nothing —
+       while Pause alone survived, because pauseDeliberately() sets
+       userPaused and firstInteraction's restart check honours it.
+       Marked events are skipped; ordinary keys (and every later key,
+       once interacted) behave exactly as before, and a screen tap
+       still unmutes via the click path above. */
+    if (e && e.__sjtvRemoteHandled) return;
+    firstInteraction();
+  });
 
   /* ============ Wake lock ============ */
   var wakeLock = null;
