@@ -400,7 +400,7 @@
     <section class="panel" aria-label="Player">
       <div class="stage-wrap" id="stageWrap">
       <div class="stage controls-on" id="stage">
-        <video id="video" playsinline autoplay muted></video>
+        <video id="video" playsinline webkit-playsinline autoplay muted preload="auto"></video>
         <button class="tapzone left" id="tapPrev" type="button" aria-label="Previous channel">
           <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 5h2.2v14H4.5zM19.5 5.6v12.8L9 12z"/></svg></span>
         </button>
@@ -1140,6 +1140,22 @@
      ONLY from the init paths, never on a channel switch. */
   var boot = { phase: 0, muted: false, launching: false };
 
+  /* Remote-control starts (steering wheel / Bluetooth / lock-screen
+     media actions, media keys) keep the launch mute. A remote press
+     is not a page gesture on car browsers (Tesla's included): when
+     the launch is playing muted and a remote resume or channel
+     switch force-unmuted before play() — the endBoot(true) the
+     on-screen paths use — the browser refused the with-sound start
+     and nothing played at all, which is why on the Tesla wheel only
+     Pause (which needs no permission) worked while resume and
+     left/right did nothing. A muted remote start is always allowed,
+     so remote entry points set this flag (or pass it to tryPlay)
+     and the start stays muted; the Tap-for-sound pill remains up,
+     and a later tap on the screen unmutes exactly as before. Once
+     the user has tapped for sound (video no longer boot-muted),
+     remote starts run with sound exactly as they always did. */
+  var remoteKeepMuted = false;
+
   function playLog(msg){ try { console.log('[SJTV] ' + msg); } catch(e){} }
 
   /* ============ CSP-block detection ============
@@ -1523,9 +1539,16 @@
     // A manual switch never inherits the boot-muted state: the new
     // channel starts with sound and the Tap-for-sound pill goes away.
     // The boot launch itself is flagged so it doesn't cancel its own
-    // ladder mid-flight.
-    if (boot.launching){ boot.launching = false; }
+    // ladder mid-flight. Remote switches (steering wheel / media
+    // keys) are the one exception: while the launch is still
+    // boot-muted they keep the mute — see remoteKeepMuted above —
+    // because a with-sound start from a remote press is refused on
+    // car browsers and the new channel would never play.
+    var isBootLaunch = false;
+    if (boot.launching){ boot.launching = false; isBootLaunch = true; }
+    else if (remoteKeepMuted && video.muted && boot.muted){ /* remote start: stay muted, boot state (and its pill) untouched */ }
     else endBoot(true);
+    remoteKeepMuted = false;
     state.index = i;
     state.now = ch;
     state.userPaused = false;
@@ -1546,6 +1569,7 @@
     showStageMsg('Loading ' + ch.name + '…', false);
     spinner.classList.add('on');
 
+    var declarativeBootAttach = false;
     if (!isNativeOnlyUrl(ch.url) && !preferNativeHls() && window.Hls && Hls.isSupported()){
       var hlsConfig = {
         enableWorker: true,
@@ -1578,12 +1602,52 @@
       hls.on(Hls.Events.LEVEL_LOADED, function(){ attemptPlay(seq, 'level-loaded'); });
       hls.on(Hls.Events.ERROR, function(evt, data){ onHlsError(data); });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')){
-      video.src = ch.url;
-      // Explicit load(), matching the other two native attach sites
-      // (fallbackToNative, the muted-boot re-attach): on a WKWebView
-      // element left emptied by an earlier teardown, a bare src
-      // assignment can sit unloaded; load() starts the fetch now.
-      try { video.load(); } catch(e){}
+      if (isBootLaunch){
+        // Safari / WebKit LAUNCH attach — declarative, not programmatic.
+        // Every previous launch fix retried the same programmatic
+        // start harder (src property + load() + a synchronous play()
+        // in the same task), and on WebKit's native HLS path that
+        // attempt is the one that stalls: muted launch autoplays on
+        // Chromium (hls.js) and Android but never starts in Safari.
+        // WebKit's own autoplay machinery is built around the
+        // element's autoplay attribute driving resource selection —
+        // the pattern in Apple's examples is a <source> child the
+        // selection algorithm picks up, with muted + playsinline +
+        // preload="auto" already on the element (preload matters on
+        // iOS, which otherwise throttles fetching of a programmatic
+        // source until a tap). So the launch channel is attached as
+        // a <source> child and the browser starts it; the immediate
+        // synchronous play() below is SKIPPED for this attach (see
+        // the attemptPlay call site) and programmatic attempts are
+        // left to the load events (loadedmetadata / canplay already
+        // call attemptPlay) and the existing retry ladders, which
+        // remain as the backstop if the declarative start is refused
+        // outright (Low Power Mode, a "Never Auto-Play" site setting).
+        // A stale src ATTRIBUTE would win over <source> children in
+        // resource selection, so it is removed first; any <source>
+        // children from an earlier boot attach go with it.
+        while (video.firstChild) video.removeChild(video.firstChild);
+        try { video.removeAttribute('src'); } catch(e){}
+        try { video.preload = 'auto'; } catch(e){}
+        var bootSrcEl = document.createElement('source');
+        bootSrcEl.src = ch.url;
+        bootSrcEl.type = 'application/vnd.apple.mpegurl';
+        video.appendChild(bootSrcEl);
+        declarativeBootAttach = true;
+        playLog('boot: native declarative autoplay attach for ' + ch.name);
+        try { video.load(); } catch(e){}
+      } else {
+        // Channel switch (a gesture-backed start — this path works):
+        // drop any <source> children left by a boot attach so the
+        // src attribute below is the one resource selection sees.
+        while (video.firstChild) video.removeChild(video.firstChild);
+        video.src = ch.url;
+        // Explicit load(), matching the other two native attach sites
+        // (fallbackToNative, the muted-boot re-attach): on a WKWebView
+        // element left emptied by an earlier teardown, a bare src
+        // assignment can sit unloaded; load() starts the fetch now.
+        try { video.load(); } catch(e){}
+      }
     } else {
       showStageMsg('This browser cannot play HLS streams.', true);
       spinner.classList.remove('on');
@@ -1595,7 +1659,12 @@
     // re-render or anything else can delay it. The promise stays
     // pending until the stream has data, and the retry ladder plus the
     // load events keep re-trying until the channel is actually playing.
-    attemptPlay(seq, 'switch');
+    // The ONE exception is the declarative Safari boot attach above:
+    // there the element's own autoplay machinery owns the start, and
+    // a synchronous programmatic play() in the same task as load() is
+    // the attempt WebKit leaves pending — the load events and the
+    // retry ladder (both still armed) are its backstop instead.
+    if (!declarativeBootAttach) attemptPlay(seq, 'switch');
     schedulePlayRetries(seq);
     // Native-path stall re-kick (WKWebView / Safari): the native
     // resource selection can wedge before metadata — a source is set
@@ -1653,10 +1722,13 @@
     if (window.requestAnimationFrame) requestAnimationFrame(checkStuck);
   }
 
-  function tryPlay(){
+  function tryPlay(keepMuted){
     // An explicit play action ends any muted boot state: resuming is a
-    // user gesture, so playback continues WITH sound.
-    endBoot(true);
+    // user gesture, so playback continues WITH sound. Remote resumes
+    // pass keepMuted: while the launch is still boot-muted the resume
+    // stays muted instead (see remoteKeepMuted above) — unmuting
+    // first is what made steering-wheel resume a no-op on Tesla.
+    if (!(keepMuted && video.muted && boot.muted)) endBoot(true);
     // A play() promise from an earlier attempt can still be pending
     // while a slow stream loads, and attemptPlay treats a pending
     // promise as "already trying" and does nothing — so the user's
@@ -1706,18 +1778,28 @@
     state.userPaused = false;
     playPending = false;
     var ch = state.now;
-    if (!ch){ tryPlay(); return; }
+    if (!ch){ tryPlay(true); return; }
     var stale = !video.currentSrc || !!video.error || video.networkState === 3;
     if (stale){
       playLog('remote play: stream element is stale — reloading ' + ch.name);
+      remoteKeepMuted = true;
       if (reloadCurrentChannel()) return;
     }
-    tryPlay();
+    // Belt and braces: tryPlay can route into playChannel (via
+    // togglePlay) when the element has no source — that switch must
+    // keep the launch mute too, not just the direct play() above.
+    remoteKeepMuted = true;
+    tryPlay(true);
+    // play() was issued synchronously above, so the flag has done its
+    // job either way (playChannel consumes it when it routes there);
+    // never leave it set for the next on-screen tap.
+    remoteKeepMuted = false;
     var seq = playSeq;
     setTimeout(function(){
       if (state.userPaused || seq !== playSeq || state.now !== ch) return;
       if (isPlaying() || !video.paused) return;
       playLog('remote play did not resume ' + ch.name + ' — reloading the channel');
+      remoteKeepMuted = true;
       reloadCurrentChannel();
     }, 1600);
   }
@@ -2123,29 +2205,37 @@
     } catch(e){}
     registerMediaHandlers();
   }
+  /* Deliberate pause from a remote (media session, media key):
+     cancels every pending play retry so nothing restarts behind the
+     user's back, and keeps SJTV registered as the Now Playing source
+     WHILE paused — metadata stays published and playbackState reads
+     'paused'. If the session is allowed to lapse at pause time, iOS
+     hands Now Playing back to the previous source (e.g. Podcasts)
+     and the next remote Play never reaches this page at all. */
+  function pauseDeliberately(){
+    state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
+    if ('mediaSession' in navigator){
+      try {
+        if (!navigator.mediaSession.metadata && state.now) setMediaSession(state.now);
+        navigator.mediaSession.playbackState = 'paused';
+      } catch(e){}
+    }
+  }
   function registerMediaHandlers(){
     if (!('mediaSession' in navigator)) return;
     var handlers = {
-      previoustrack: function(){ prevChannel(); },
-      nexttrack: function(){ nextChannel(); },
+      // Track / seek actions are channel switches, and a switch from
+      // a remote press keeps the launch mute (remoteKeepMuted): on
+      // the Tesla wheel these tilted left/right and did nothing at
+      // all while the launch was muted, because the switch unmuted
+      // first and the car browser refused the with-sound start.
+      previoustrack: function(){ remoteKeepMuted = true; prevChannel(); },
+      nexttrack: function(){ remoteKeepMuted = true; nextChannel(); },
       play: function(){ resumeRemote(); },
-      pause: function(){
-        state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
-        // Keep SJTV registered as the Now Playing source WHILE paused:
-        // metadata stays published and playbackState reads 'paused'.
-        // If the session is allowed to lapse at pause time, iOS hands
-        // Now Playing back to the previous source (e.g. Podcasts) and
-        // the next remote Play never reaches this page at all.
-        if ('mediaSession' in navigator){
-          try {
-            if (!navigator.mediaSession.metadata && state.now) setMediaSession(state.now);
-            navigator.mediaSession.playbackState = 'paused';
-          } catch(e){}
-        }
-      },
+      pause: function(){ pauseDeliberately(); },
       stop: function(){ video.pause(); },
-      seekbackward: function(){ prevChannel(); },
-      seekforward: function(){ nextChannel(); }
+      seekbackward: function(){ remoteKeepMuted = true; prevChannel(); },
+      seekforward: function(){ remoteKeepMuted = true; nextChannel(); }
     };
     Object.keys(handlers).forEach(function(action){
       try { navigator.mediaSession.setActionHandler(action, handlers[action]); } catch(e){}
@@ -2153,14 +2243,34 @@
   }
   registerMediaHandlers();
 
-  /* ============ Keyboard — covers remotes that send key events ============ */
+  /* ============ Keyboard — covers remotes that send key events ============
+     Some remotes and car browsers (Tesla's among them) deliver
+     steering-wheel / media buttons as key events instead of Media
+     Session actions, and the vocabulary varies by platform: discrete
+     MediaPlay / MediaPause keys, the legacy MediaNextTrack /
+     MediaPreviousTrack names, or no usable key name at all — just
+     the legacy keyCode (176 next, 177 previous, 178 stop, 179
+     play/pause). All of them are recognized here and routed through
+     the same remote paths as the Media Session handlers, launch
+     mute preserved (remoteKeepMuted) for the same reason. */
   document.addEventListener('keydown', function(e){
     var tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     var key = e.key, code = e.code;
-    if (key === 'MediaTrackNext' || code === 'MediaTrackNext'){ e.preventDefault(); nextChannel(); }
-    else if (key === 'MediaTrackPrevious' || code === 'MediaTrackPrevious'){ e.preventDefault(); prevChannel(); }
-    else if (key === 'MediaPlayPause' || code === 'MediaPlayPause'){ e.preventDefault(); togglePlay(); }
+    var mediaName = key || code || '';
+    if ((key === 'Unidentified' || !key) && (e.keyCode || e.which)){
+      var kc = e.keyCode || e.which;
+      mediaName = kc === 176 ? 'MediaTrackNext' : kc === 177 ? 'MediaTrackPrevious'
+        : kc === 178 ? 'MediaStop' : kc === 179 ? 'MediaPlayPause' : mediaName;
+    }
+    if (mediaName === 'MediaPlay'){ e.preventDefault(); resumeRemote(); }
+    else if (mediaName === 'MediaPause'){ e.preventDefault(); pauseDeliberately(); updatePlayIcon(); }
+    else if (mediaName === 'MediaStop'){ e.preventDefault(); pauseDeliberately(); updatePlayIcon(); }
+    else if (mediaName === 'MediaTrackNext' || mediaName === 'MediaNextTrack' ||
+             mediaName === 'MediaFastForward'){ e.preventDefault(); remoteKeepMuted = true; nextChannel(); }
+    else if (mediaName === 'MediaTrackPrevious' || mediaName === 'MediaPreviousTrack' ||
+             mediaName === 'MediaRewind'){ e.preventDefault(); remoteKeepMuted = true; prevChannel(); }
+    else if (mediaName === 'MediaPlayPause'){ e.preventDefault(); if (video.paused) resumeRemote(); else togglePlay(); }
     else if (key === 'ArrowRight' || key === '.'){ e.preventDefault(); nextChannel(); }
     else if (key === 'ArrowLeft' || key === ','){ e.preventDefault(); prevChannel(); }
     else if (key === ' ' || key === 'k'){ e.preventDefault(); togglePlay(); }
@@ -3315,6 +3425,15 @@
     try { video.defaultMuted = true; } catch(e){}
     try { video.setAttribute('muted', ''); } catch(e){}
     video.muted = true; // muted before the source starts — required for the muted attempt to count
+    // Same belt-and-braces for the other two WebKit autoplay inputs:
+    // playsinline as property + attribute (a webview that drops the
+    // markup attribute would otherwise try to force fullscreen /
+    // refuse inline autoplay), and preload="auto" so iOS Safari
+    // actually fetches the stream at launch instead of throttling a
+    // programmatic source until the first tap.
+    try { video.playsInline = true; } catch(e){}
+    try { video.setAttribute('playsinline', ''); } catch(e){}
+    try { video.preload = 'auto'; } catch(e){}
     playLog('boot autoplay: starting channel "' + state.now.name + '" muted on launch');
     playChannel(idx);
     // Launch retry ladder for the muted start itself: some webviews
@@ -3344,6 +3463,22 @@
       playPending = false; playPendingAt = 0;
       attemptPlay(playSeq, 'boot-muted-retry@' + bootRetryAt + 'ms');
     }, 2000);
+    // Guaranteed escape hatch for a refusal that never surfaces as a
+    // rejection (WebKit can leave the start pending indefinitely —
+    // no NotAllowedError for onPlayRejected to turn into the overlay):
+    // if the boot stream still hasn't started seconds after the
+    // native stall re-kick (6s) had its chance, put the tap-to-play
+    // overlay up so the launch never sits on an unexplained frozen
+    // frame — its tap issues play() inside the gesture, the one
+    // start every policy honours. A stream that starts before the
+    // deadline (or after, via the 'playing' listener's hideTapPlay)
+    // never leaves the overlay standing.
+    setTimeout(function(){
+      if (bootSeq !== playSeq || state.userPaused || boot.phase !== 2) return;
+      if (isPlaying() || !video.paused || tapPlayVisible()) return;
+      playLog('boot: muted launch still not playing after 6.5s — surfacing tap-to-play');
+      showTapPlay();
+    }, 6500);
   }
 
   /* ============ Init — restore exactly what was chosen last time ============ */
