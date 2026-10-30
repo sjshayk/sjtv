@@ -318,7 +318,7 @@
      built-in World News list is the loaded source. Lives in the page
      footer (not under the player) so it never pushes controls or
      panels down the screen. */
-  .srcnote{font-size:11.5px; font-weight:400; color:var(--faint); line-height:1.55; margin:0; padding:0 8px; width:100%; max-width:none; text-align:justify}
+  .srcnote{font-size:11.5px; font-weight:400; color:var(--muted); line-height:1.55; margin:0; padding:0 8px; width:100%; max-width:none; text-align:justify}
   .srcnote[hidden]{display:none}
   .tools{display:flex; gap:8px; margin-bottom:10px}
   .tools input[type=search]{flex:1; min-width:0; background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:16px}
@@ -3528,7 +3528,35 @@
     // list is the loaded source — the embedded snapshot, its online
     // (bit.ly/sj-wnews) refresh, or a legacy load of that same link.
     var note = $('srcNote');
-    if (note) note.hidden = !(d.kind === 'builtin' || d.snapshot === true || d.url === SJ_WNEWS_URL);
+    if (note) note.hidden = !isBuiltinSource();
+  }
+  /* Is the loaded source the built-in World News list? Recognized by
+     descriptor (kind / snapshot flag), by its short link in ANY form
+     (isBuiltinLink accepts every scheme / www variant — the old test
+     here demanded the one exact 'http://bit.ly/sj-wnews' string, so a
+     device whose stored source is the same list loaded online as
+     'https://bit.ly/sj-wnews' hid the note even with World News on
+     screen, while a fresh surface starting from the snapshot showed
+     it), and finally by content: the channel list actually loaded IS
+     the embedded snapshot, same channels in the same order, whatever
+     descriptor a long-lived stored state (or a Saved Lists copy of
+     the same list) carries. Fresh installs passed the old test; a
+     phone with months of saved state was the one that failed it. */
+  function isBuiltinSource(){
+    var d = state.sourceDesc || {};
+    if (d.kind === 'builtin' || d.snapshot === true) return true;
+    if (d.url && (d.url === SJ_WNEWS_URL || isBuiltinLink(d.url))) return true;
+    try {
+      var fresh = parseM3U(SJ_WNEWS_M3U);
+      var cur = state.allChannels || [];
+      if (fresh.length && cur.length === fresh.length){
+        for (var i = 0; i < fresh.length; i++){
+          if (!cur[i] || cur[i].url !== fresh[i].url) return false;
+        }
+        return true;
+      }
+    } catch(e){}
+    return false;
   }
   $('btnBuiltinSJTV').addEventListener('click', function(){ loadBuiltinNews(true, false); });
   $('btnRefreshUrl').addEventListener('click', function(){
