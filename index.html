@@ -314,12 +314,12 @@
   .btnrow.quad .btn svg{display:none}
   .hint{font-size:12.5px; color:var(--faint); line-height:1.5; margin:10px 0 0}
   .hint code{background:var(--chip); padding:1px 5px; border-radius:5px; font-size:12px}
-  /* source / rights note — footer small print, shown only while the
-     built-in World News list is the loaded source. Lives in the page
-     footer (not under the player) so it never pushes controls or
-     panels down the screen. */
-  .srcnote{font-size:11.5px; font-weight:400; color:var(--muted); line-height:1.55; margin:0; padding:0 8px; width:100%; max-width:none; text-align:justify}
-  .srcnote[hidden]{display:none}
+  /* source / rights note — footer small print, always shown in the
+     page footer (not under the player) so it never pushes controls
+     or panels down the screen. It is part of the static footer
+     markup: no script condition hides it, so it renders on every
+     surface and in every saved state. */
+  .srcnote{display:block; font-size:11.5px; font-weight:400; color:var(--muted); line-height:1.55; margin:0; padding:0 8px; width:100%; max-width:none; text-align:justify}
   .tools{display:flex; gap:8px; margin-bottom:10px}
   .tools input[type=search]{flex:1; min-width:0; background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:16px}
   .tools select{background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px; font-size:16px; min-width:0; max-width:150px}
@@ -528,7 +528,7 @@
       <span>and</span>
       <span><a href="https://threads.net/@sjshayk" target="_blank" rel="noopener noreferrer" aria-label="SJTV on Threads — @sjshayk">@</a>.</span>
     </div>
-    <p class="srcnote" id="srcNote" hidden>Source note: the channels in the built-in World News list are free public streams published by their respective broadcasters, compiled from public sources including the iptv-org channel lists. SJTV doesn’t host or own any of these streams — all rights remain with their broadcasters.</p>
+    <p class="srcnote" id="srcNote">Source note: the channels in the built-in World&nbsp;News list are free public streams published by their respective broadcasters, compiled from public sources including the iptv-org channel lists. SJTV doesn’t host or own any of these streams — all rights remain with their broadcasters.</p>
   </footer>
 </div>
 
@@ -3230,6 +3230,11 @@
     syncFavUI();
     if (state.now) updateNowPlaying();
     saveState();
+    // The refreshed list can change whether the loaded source reads
+    // as the built-in World News list (its online form differs from
+    // the embedded snapshot) — re-evaluate the footer source note
+    // instead of leaving whatever state the restore path set.
+    syncSourceUI();
   }
 
   /* opts.background: silent open-time refresh of the sticky online
@@ -3524,39 +3529,15 @@
     // built-in SJTV source (its Drive link) and for any playlist the
     // user loaded by URL, because the online source is the sticky one.
     $('btnRefreshUrl').style.display = d.url ? '' : 'none';
-    // Source / rights note: shown only while the built-in World News
-    // list is the loaded source — the embedded snapshot, its online
-    // (bit.ly/sj-wnews) refresh, or a legacy load of that same link.
+    // Source / rights note: ALWAYS shown in the footer. Earlier
+    // builds gated it on recognising the loaded source as the
+    // built-in World News list, and that test kept failing on
+    // long-lived saved states (iPhone app, GitHub page) even as it
+    // passed on fresh loads — so the note repeatedly went missing.
+    // The note is static footer text now: it is present in the
+    // markup with no hidden attribute and no script ever hides it.
     var note = $('srcNote');
-    if (note) note.hidden = !isBuiltinSource();
-  }
-  /* Is the loaded source the built-in World News list? Recognized by
-     descriptor (kind / snapshot flag), by its short link in ANY form
-     (isBuiltinLink accepts every scheme / www variant — the old test
-     here demanded the one exact 'http://bit.ly/sj-wnews' string, so a
-     device whose stored source is the same list loaded online as
-     'https://bit.ly/sj-wnews' hid the note even with World News on
-     screen, while a fresh surface starting from the snapshot showed
-     it), and finally by content: the channel list actually loaded IS
-     the embedded snapshot, same channels in the same order, whatever
-     descriptor a long-lived stored state (or a Saved Lists copy of
-     the same list) carries. Fresh installs passed the old test; a
-     phone with months of saved state was the one that failed it. */
-  function isBuiltinSource(){
-    var d = state.sourceDesc || {};
-    if (d.kind === 'builtin' || d.snapshot === true) return true;
-    if (d.url && (d.url === SJ_WNEWS_URL || isBuiltinLink(d.url))) return true;
-    try {
-      var fresh = parseM3U(SJ_WNEWS_M3U);
-      var cur = state.allChannels || [];
-      if (fresh.length && cur.length === fresh.length){
-        for (var i = 0; i < fresh.length; i++){
-          if (!cur[i] || cur[i].url !== fresh[i].url) return false;
-        }
-        return true;
-      }
-    } catch(e){}
-    return false;
+    if (note) note.hidden = false;
   }
   $('btnBuiltinSJTV').addEventListener('click', function(){ loadBuiltinNews(true, false); });
   $('btnRefreshUrl').addEventListener('click', function(){
