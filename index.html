@@ -122,7 +122,14 @@
 
   /* ---------- player ---------- */
   .stage-wrap{position:relative}
-  .stage{position:relative; background:#000; border-radius:var(--radius); overflow:hidden; aspect-ratio:16/9; width:100%; touch-action:pan-y}
+  .stage{position:relative; background:#000; border-radius:var(--radius); overflow:hidden; aspect-ratio:16/9; width:100%; touch-action:pan-y; outline:none; -webkit-tap-highlight-color:transparent}
+  /* No blue focus ring / overlay on the player: focus is parked on the
+     stage programmatically on every channel switch (focusStage), and
+     WebKit drew its bright blue outline around the whole video each
+     time. Focus parking and keyboard / remote handling are unchanged —
+     only the visible outline is suppressed, on the stage and the
+     video element alike. */
+  .stage:focus, .stage:focus-visible, .stage video, .stage video:focus{outline:none}
   /* pinned (sticky) state — same element, just fixed, so the stream never
      reloads. It keeps the true 16:9 shape (width capped on wide screens)
      and the video is letterboxed via object-fit:contain, so the WHOLE
@@ -228,11 +235,11 @@
   .soundpill{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:9; display:none; align-items:center; gap:8px; background:var(--accent); color:#fff; border:1px solid var(--accent-dark); border-radius:999px; padding:12px 22px; font:inherit; font-size:16px; font-weight:700; box-shadow:0 10px 26px rgba(0,0,0,.5); cursor:pointer; white-space:nowrap}
   .soundpill.on{display:inline-flex}
   .soundpill:active{transform:translateX(-50%) scale(.96)}
-  .announce{
-    position:absolute; left:0; right:0; bottom:0; z-index:4; pointer-events:none;
-    padding:38px 18px 14px; color:#fff; opacity:0; transform:translateY(6px); transition:opacity .25s, transform .25s;
-    background:linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,0));
-  }
+  /* Channel-change banner removed by request: no text overlay on the
+     video when the channel changes — the channel name already shows in
+     the selector bar directly under the player. The element stays in
+     the markup but never displays, whatever the script does. */
+  .announce{display:none}
   .announce.on{opacity:1; transform:none}
   .announce .num{font-family:"Barlow Condensed",sans-serif; font-size:15px; letter-spacing:.22em; font-weight:600; color:#ffb3b5; text-transform:uppercase}
   .announce .name{font-family:"Barlow Condensed",sans-serif; font-size:clamp(30px,5.2vw,52px); line-height:1.02; font-weight:700; text-transform:uppercase; letter-spacing:.01em}
@@ -551,8 +558,20 @@
     <p style="overflow-wrap:anywhere; font-size:12.5px" id="urlSaveUrl"></p>
     <input type="text" id="urlSaveName" placeholder="Playlist name — e.g. India News" maxlength="60" aria-label="Name for this playlist" />
     <div class="btnrow" style="margin-top:12px">
-      <button class="btn primary" id="btnUrlSaveConfirm" type="button">Save to Saved Lists</button>
+      <button class="btn primary" id="btnUrlSaveOk" type="button">Save to Saved Lists</button>
       <button class="btn" id="btnUrlSaveCancel" type="button">Skip</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="pasteSaveModal" role="dialog" aria-modal="true" aria-labelledby="pasteSaveTitle">
+  <div class="box">
+    <h3 id="pasteSaveTitle">Name this playlist</h3>
+    <p>Loaded <b id="pasteSaveCount">0</b> channels from the pasted playlist. Give it a name and it will be saved under <b>Saved Lists</b> — tap its name there anytime to play it again right away.</p>
+    <input type="text" id="pasteSaveName" placeholder="Playlist name — e.g. My News" maxlength="60" aria-label="Name for this playlist" />
+    <div class="btnrow" style="margin-top:12px">
+      <button class="btn primary" id="btnPasteSaveOk" type="button">Save to Saved Lists</button>
+      <button class="btn" id="btnPasteSaveCancel" type="button">Skip</button>
     </div>
   </div>
 </div>
@@ -563,7 +582,7 @@
     <p>Your <b id="saveCount">0</b> favorite channels become a saved list you can reopen anytime from “Saved Lists”, alongside the built-in World News list.</p>
     <input type="text" id="saveName" placeholder="List name — e.g. My News" maxlength="60" aria-label="Name for the saved list" />
     <div class="btnrow" style="margin-top:12px">
-      <button class="btn primary" id="btnSaveConfirm" type="button">Save list</button>
+      <button class="btn primary" id="btnSaveOk" type="button">Save list</button>
       <button class="btn" id="btnSaveCancel" type="button">Cancel</button>
     </div>
   </div>
@@ -1285,7 +1304,7 @@
     // the loadedmetadata / canplay retries and the whole retry ladder
     // were swallowed behind it and the launch sat on a paused frame
     // until a tap (whose handler force-resets the flag) issued a fresh
-    // play(). Chromium settles such promises promptly, which is why
+    // play(). Chromium settles such promises quickly, which is why
     // the muted launch start worked there but not on iOS. A pending
     // attempt now only suppresses retries while it is fresh (1.2s);
     // past that, a new play() is issued alongside it — overlapping
@@ -1858,19 +1877,31 @@
          (no source, error state, no-source network state) — a bare
          play() on such an element goes nowhere, so a demonstrably
          stale element reloads the SAME channel instead;
+       · a LONG pause expires a live stream even when the element
+         still looks healthy: these are live-edge HLS feeds, so the
+         buffered position a short pause resumes from has slid out of
+         the segment window after a minute or so, and a bare play()
+         stalls on media that no longer exists (or errors and the
+         session dies with it — the "paused it, came back later,
+         video was lost" report). A pause older than the threshold
+         therefore reloads the same channel at the live edge, exactly
+         like the stale case; short pauses keep the instant buffered
+         resume they have always had;
        · if play() was accepted but playback still hasn't resumed
          shortly after (wedged element, silently dropped attempt),
          one guarded reload of the same channel recovers it. The
          guard re-checks channel, pause intent and switch sequence,
          so it can never fire after a newer switch or a new pause. */
+  var LONG_PAUSE_MS = 45000; // paused longer than this → a live element is treated as expired on resume
   function resumeRemote(){
     state.userPaused = false;
     playPending = false;
     var ch = state.now;
     if (!ch){ tryPlay(true); return; }
     var stale = !video.currentSrc || !!video.error || video.networkState === 3;
-    if (stale){
-      playLog('remote play: stream element is stale — reloading ' + ch.name);
+    var longPause = !!state.pausedAt && (Date.now() - state.pausedAt > LONG_PAUSE_MS);
+    if (stale || longPause){
+      playLog('remote play: ' + (longPause && !stale ? 'long pause — live position expired' : 'stream element is stale') + ', reloading ' + ch.name);
       remoteKeepMuted = true;
       if (reloadCurrentChannel()) return;
     }
@@ -1886,11 +1917,15 @@
     var seq = playSeq;
     setTimeout(function(){
       if (state.userPaused || seq !== playSeq || state.now !== ch) return;
-      if (isPlaying() || !video.paused) return;
+      // "Resumed" means actually playing — data flowing, not merely
+      // play() accepted. The old check also stood down whenever the
+      // element reported unpaused, so a resume stalled on an expired
+      // buffer (unpaused, zero new frames) was never recovered.
+      if (isPlaying()) return;
       playLog('remote play did not resume ' + ch.name + ' — reloading the channel');
       remoteKeepMuted = true;
       reloadCurrentChannel();
-    }, 1600);
+    }, 2500);
   }
 
   function onHlsError(data){
@@ -1927,6 +1962,7 @@
     // (see onAudioInterruption). Re-stamped after a stall recovery,
     // which just extends the protected startup window slightly.
     state.playingSince = Date.now();
+    state.pausedAt = 0; // playing again — any earlier pause stamp is spent
     clearTimeout(state.skipTimer);
     clearTimeout(state.watchdogTimer);
     clearPlayTimers();
@@ -1999,7 +2035,25 @@
     updatePlayIcon();
     showControls();
     state.pausedAt = Date.now();
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+    // Full session hold, not just the playback state: if the browser
+    // has already dropped the metadata (it can, when it idles the
+    // element), a bare playbackState publish leaves SJTV unregistered
+    // and Control Center falls back to the previous app.
+    holdMediaSession();
+  });
+  video.addEventListener('emptied', function(){
+    // iOS unloads the media element after a long pause (screen locked,
+    // app backgrounded): the element loses its source AND WebKit drops
+    // the page's Now Playing registration with it — which is how a
+    // long-paused SJTV vanished from Control Center and Play there
+    // started the previously played app (Music / Podcasts) instead.
+    // Re-publish the session for the channel that is supposed to be
+    // loaded, so SJTV stays the paused Now Playing source; the next
+    // remote Play then reaches resumeRemote(), whose stale check
+    // (!video.currentSrc) reloads this same channel. This also fires
+    // on ordinary channel switches — re-publishing the new channel's
+    // session mid-load is what setMediaSession() does there anyway.
+    holdMediaSession();
   });
   video.addEventListener('ended', function(){ nextChannel(); });
 
@@ -2246,11 +2300,9 @@
 
   function announce(ch, i){
     showControls();
-    $('announceNum').textContent = 'Channel ' + (i + 1) + ' of ' + state.channels.length + (ch.group ? ' · ' + ch.group : '');
-    $('announceName').textContent = ch.name;
-    announceEl.classList.add('on');
-    clearTimeout(announceTimer);
-    announceTimer = setTimeout(function(){ announceEl.classList.remove('on'); }, 2600);
+    /* No on-video text banner on a channel change (removed by request):
+       the icon controls still appear via showControls() above, and the
+       channel name shows in the selector bar under the player. */
     if (ANNOUNCE_VOICE_ENABLED && 'speechSynthesis' in window){
       try {
         window.speechSynthesis.cancel();
@@ -2311,6 +2363,36 @@
     } catch(e){}
     registerMediaHandlers();
   }
+  /* Hold SJTV's claim on the system Now Playing slot for the channel
+     that is loaded: re-publish the metadata if the browser has dropped
+     it, and keep playbackState in step with the element. Publishing
+     once at pause time is NOT enough for a long pause — WebKit can
+     idle / unload a paused element minutes later and take the page's
+     Now Playing registration down with it, after which Control Center
+     shows (and Play starts) whatever app played before SJTV. So this
+     is re-run whenever the element empties, whenever the page comes
+     back to the foreground, and on a slow keeper timer below while a
+     channel is loaded. Re-asserting a PAUSED state never steals the
+     slot back from an app that is actively playing — it only stops
+     SJTV's own paused registration from evaporating. */
+  function holdMediaSession(){
+    if (!state.now || !('mediaSession' in navigator)) return;
+    try {
+      if (video.paused || video.ended){
+        // Paused is the fragile state: re-publish the WHOLE session
+        // (fresh metadata + handlers + 'paused' state), not just fill
+        // a missing metadata slot — a registration WebKit has idled
+        // internally is only revived by publishing again. While
+        // playing, the 'playing' listener already re-publishes, so
+        // there the light touch (fill in only if missing) is enough
+        // and avoids churning a live session.
+        setMediaSession(state.now);
+      } else {
+        if (!navigator.mediaSession.metadata) setMediaSession(state.now);
+        navigator.mediaSession.playbackState = 'playing';
+      }
+    } catch(e){}
+  }
   /* Deliberate pause from a remote (media session, media key):
      cancels every pending play retry so nothing restarts behind the
      user's back, and keeps SJTV registered as the Now Playing source
@@ -2320,12 +2402,7 @@
      and the next remote Play never reaches this page at all. */
   function pauseDeliberately(){
     state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
-    if ('mediaSession' in navigator){
-      try {
-        if (!navigator.mediaSession.metadata && state.now) setMediaSession(state.now);
-        navigator.mediaSession.playbackState = 'paused';
-      } catch(e){}
-    }
+    holdMediaSession();
   }
   /* One skip entry point for EVERY remote route — Media Session
      track / seek actions and wheel key events alike — with a short
@@ -2342,21 +2419,12 @@
      arrived as a Media Session action, an arrow key, or not at all
      is the difference between a fix and another guess. */
   var lastRemoteSkip = { dir: '', at: 0 };
-  var remoteNoteEl = null, remoteNoteTimer = null;
-  function noteRemoteRoute(text){
-    try {
-      if (!remoteNoteEl){
-        remoteNoteEl = document.createElement('div');
-        remoteNoteEl.setAttribute('aria-hidden', 'true');
-        remoteNoteEl.style.cssText = 'position:absolute;left:12px;bottom:12px;z-index:6;background:rgba(10,12,14,.78);color:#fff;font-size:12px;font-weight:600;padding:5px 9px;border-radius:7px;pointer-events:none;display:none;max-width:70%';
-        stage.appendChild(remoteNoteEl);
-      }
-      remoteNoteEl.textContent = text;
-      remoteNoteEl.style.display = 'block';
-      clearTimeout(remoteNoteTimer);
-      remoteNoteTimer = setTimeout(function(){ if (remoteNoteEl) remoteNoteEl.style.display = 'none'; }, 2600);
-    } catch(e){}
-  }
+  /* No route text on the video (removed by request): a remote / media-key
+     channel change used to draw a "Next channel · via Media Session"
+     pill at the bottom-left of the player. The skip itself is unchanged
+     — remoteSkip() below still switches the channel — it just no longer
+     writes any control text onto the video. */
+  function noteRemoteRoute(text){}
   function remoteSkip(dir, via){
     var now = Date.now();
     if (lastRemoteSkip.dir === dir && now - lastRemoteSkip.at < 450) return;
@@ -2377,7 +2445,7 @@
       nexttrack: function(){ remoteSkip('next', 'Media Session ⏭'); },
       play: function(){ resumeRemote(); },
       pause: function(){ pauseDeliberately(); },
-      stop: function(){ video.pause(); },
+      stop: function(){ pauseDeliberately(); },
       seekbackward: function(){ remoteSkip('prev', 'Media Session ⏪'); },
       seekforward: function(){ remoteSkip('next', 'Media Session ⏩'); },
       /* Some stacks express a wheel tilt as an absolute seek instead
@@ -2395,6 +2463,25 @@
     });
   }
   registerMediaHandlers();
+
+  /* Session keeper — the long-pause half of the Control Center fix.
+     A channel can sit paused for a long time (lock screen, another
+     app in front); while the page is alive, this slow timer plus the
+     foreground-return hooks re-run holdMediaSession() so SJTV's
+     paused Now Playing registration is renewed instead of lapsing
+     back to the previously played app. 20s is deliberately gentle:
+     it only republishes state the page already owns. If iOS fully
+     suspends or discards the page, no timer can run — the 'emptied'
+     and foreground hooks are the recovery for every lighter case,
+     and resumeRemote() below rebuilds the stream itself when a Play
+     press does arrive after the element was unloaded. */
+  setInterval(function(){ holdMediaSession(); }, 20000);
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden) holdMediaSession();
+  });
+  window.addEventListener('pageshow', holdMediaSession);
+  window.addEventListener('focus', holdMediaSession);
+  document.addEventListener('resume', holdMediaSession);
 
   /* ============ Keyboard — covers remotes that send key events ============
      Some remotes and car browsers (Tesla's among them) deliver
@@ -3412,7 +3499,7 @@
      pull a fresh copy from the online source. Only an entry saved
      before the channel copy was kept (channels: null) still loads from
      its URL on tap — once, after which it is cached too. Refresh,
-     background refreshes and restores never prompt — only a fresh
+     background refreshes and restores never ask — only a fresh
      manual URL load does. */
   var pendingUrlSave = null;
   function suggestNameFromUrl(url){
@@ -3429,7 +3516,7 @@
       return host ? host + ' playlist' : 'My playlist';
     } catch(e){ return 'My playlist'; }
   }
-  function promptSaveUrlPlaylist(url, chans){
+  function showSaveUrlPlaylist(url, chans){
     pendingUrlSave = { url: url, channels: chans };
     $('urlSaveCount').textContent = chans.length;
     $('urlSaveUrl').textContent = url;
@@ -3447,9 +3534,9 @@
   $('btnUrlSaveCancel').addEventListener('click', closeUrlSaveModal);
   $('urlSaveModal').addEventListener('click', function(e){ if (e.target === this) closeUrlSaveModal(); });
   $('urlSaveName').addEventListener('keydown', function(e){
-    if (e.key === 'Enter'){ e.preventDefault(); $('btnUrlSaveConfirm').click(); }
+    if (e.key === 'Enter'){ e.preventDefault(); $('btnUrlSaveOk').click(); }
   });
-  $('btnUrlSaveConfirm').addEventListener('click', function(){
+  $('btnUrlSaveOk').addEventListener('click', function(){
     if (!pendingUrlSave) return;
     var url = pendingUrlSave.url;
     var chans = pendingUrlSave.channels;
@@ -3474,11 +3561,63 @@
     toast('Saved “' + name + '” to Saved Lists — ' + chans.length + ' channels. Tap it there to play it anytime.');
   });
 
+  /* ============ Save dialog for pasted playlists ============
+     Mirrors the URL flow above: a fresh manual paste that parses to
+     playable channels asks for a name and stores the channel copy
+     under Saved Lists (no URL — the pasted text is the source, so
+     the entry always plays from its stored copy). Skip leaves the
+     pasted list loaded but unsaved, exactly as before. Saving under
+     an existing name replaces that entry instead of duplicating it. */
+  var pendingPasteSave = null;
+  function showSavePastedPlaylist(chans){
+    pendingPasteSave = { channels: chans };
+    $('pasteSaveCount').textContent = chans.length;
+    $('pasteSaveName').value = 'Pasted playlist';
+    $('pasteSaveModal').classList.add('on');
+    $('pasteSaveName').focus();
+    $('pasteSaveName').select();
+  }
+  function closePasteSaveModal(){
+    pendingPasteSave = null;
+    $('pasteSaveModal').classList.remove('on');
+  }
+  $('btnPasteSaveCancel').addEventListener('click', closePasteSaveModal);
+  $('pasteSaveModal').addEventListener('click', function(e){ if (e.target === this) closePasteSaveModal(); });
+  $('pasteSaveName').addEventListener('keydown', function(e){
+    if (e.key === 'Enter'){ e.preventDefault(); $('btnPasteSaveOk').click(); }
+  });
+  $('btnPasteSaveOk').addEventListener('click', function(){
+    if (!pendingPasteSave) return;
+    var chans = pendingPasteSave.channels;
+    var name = $('pasteSaveName').value.trim() || 'Pasted playlist';
+    var entry = {
+      name: name,
+      count: chans.length,
+      channels: chans.map(function(c){
+        return { name: c.name, url: c.url, logo: c.logo || '', group: c.group || 'News' };
+      })
+    };
+    var existing = -1;
+    state.savedLists.forEach(function(l, i){ if (l.name.toLowerCase() === name.toLowerCase()) existing = i; });
+    if (existing >= 0) state.savedLists[existing] = entry; else state.savedLists.push(entry);
+    closePasteSaveModal();
+    renderSavedLists();
+    // The playlist just pasted is this one: adopt the chosen name as
+    // its source label so the pill matches Saved Lists.
+    if (state.sourceDesc && state.sourceDesc.kind === 'paste'){
+      state.sourceDesc.label = name;
+      state.source = name;
+      syncSrcPill();
+    }
+    saveState();
+    toast('Saved “' + name + '” to Saved Lists — ' + chans.length + ' channels. Tap it there to play it anytime.');
+  });
+
   $('btnLoadUrl').addEventListener('click', function(){
     var url = $('urlInput').value.trim();
     if (!url){ toast('Paste your playlist URL first.'); return; }
     fetchPlaylist(url, 'Playlist URL', { kind: 'url', label: 'Playlist URL', url: url }, true, {
-      onSuccess: function(chans){ promptSaveUrlPlaylist(url, chans); }
+      onSuccess: function(chans){ showSaveUrlPlaylist(url, chans); }
     });
   });
   $('urlInput').addEventListener('keydown', function(e){
@@ -3505,7 +3644,11 @@
     var text = $('pasteArea').value;
     if (!text.trim()){ toast('Paste the playlist text first.'); return; }
     $('pasteModal').classList.remove('on');
-    setPlaylist(parseM3U(text), 'Pasted playlist', true, { kind: 'paste', label: 'Pasted playlist', url: '' });
+    var chans = parseM3U(text);
+    setPlaylist(chans, 'Pasted playlist', true, { kind: 'paste', label: 'Pasted playlist', url: '' });
+    // Only a paste that actually produced playable channels earns the
+    // save dialog (setPlaylist already toasts when none were found).
+    if (chans.length) showSavePastedPlaylist(chans);
   });
 
   /* ============ SJTV — built-in copy of the source playlist ============
@@ -3630,9 +3773,9 @@
   $('btnSaveCancel').addEventListener('click', function(){ $('saveModal').classList.remove('on'); });
   $('saveModal').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
   $('saveName').addEventListener('keydown', function(e){
-    if (e.key === 'Enter'){ e.preventDefault(); $('btnSaveConfirm').click(); }
+    if (e.key === 'Enter'){ e.preventDefault(); $('btnSaveOk').click(); }
   });
-  $('btnSaveConfirm').addEventListener('click', function(){
+  $('btnSaveOk').addEventListener('click', function(){
     var name = $('saveName').value.trim() || 'My favorites';
     var entry = {
       name: name,
