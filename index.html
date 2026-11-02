@@ -1380,6 +1380,61 @@
     if (state.hls){ try { state.hls.destroy(); } catch(e){} state.hls = null; }
   }
 
+  /* ============ Closed captions — OFF by default ============
+     Neither engine should show captions/subtitles unless they are
+     turned on, and this player has no captions toggle of its own:
+     any track that arrives "showing" got that way from the stream
+     or from the browser honouring a system caption preference, not
+     from a choice made in this page. So every caption/subtitle
+     track is forced to 'disabled' and, on the hls.js path, no
+     subtitle track is selected and subtitle display is off. This
+     runs on every channel switch, whenever a new text track is
+     added, whenever a track's mode changes (a browser can flip a
+     track to 'showing' after load), and on the load/play events —
+     tracks arrive asynchronously, so a one-time call at switch
+     time alone would miss late tracks. Data/metadata tracks are
+     left alone except when one is somehow showing. */
+  function disableCaptions(){
+    try {
+      var tracks = video.textTracks;
+      if (tracks){
+        for (var i = 0; i < tracks.length; i++){
+          var t = tracks[i];
+          if (!t) continue;
+          if ((t.kind === 'captions' || t.kind === 'subtitles' || t.mode === 'showing') && t.mode !== 'disabled'){
+            try { t.mode = 'disabled'; } catch(e){}
+          }
+        }
+      }
+    } catch(e){}
+    try {
+      if (state.hls){
+        try { state.hls.subtitleDisplay = false; } catch(e){}
+        try {
+          if (typeof state.hls.subtitleTrack === 'number' && state.hls.subtitleTrack !== -1){
+            state.hls.subtitleTrack = -1;
+          }
+        } catch(e){}
+      }
+    } catch(e){}
+    // Safari's legacy flag for embedded (CEA) closed captions.
+    try { if ('webkitClosedCaptionsVisible' in video) video.webkitClosedCaptionsVisible = false; } catch(e){}
+  }
+  try {
+    if (video.textTracks && typeof video.textTracks.addEventListener === 'function'){
+      video.textTracks.addEventListener('addtrack', function(e){
+        if (e && e.track && (e.track.kind === 'captions' || e.track.kind === 'subtitles')){
+          try { e.track.mode = 'disabled'; } catch(err){}
+        }
+        disableCaptions();
+      });
+      video.textTracks.addEventListener('change', disableCaptions);
+    }
+  } catch(e){}
+  video.addEventListener('loadedmetadata', disableCaptions);
+  video.addEventListener('canplay', disableCaptions);
+  video.addEventListener('playing', disableCaptions);
+
   /* ============ CORS unblocker — built into the player ============
      A browser extension that disables CORS only exists on desktop
      Chrome / Firefox; it cannot be bundled into a page and does
@@ -1615,6 +1670,7 @@
     state.hlsNetFails = 0;
 
     destroyHls();
+    disableCaptions();
     showStageMsg('Loading ' + ch.name + '…', false);
     spinner.classList.add('on');
 
@@ -1645,9 +1701,16 @@
       }
       var hls = new Hls(hlsConfig);
       state.hls = hls;
+      // Captions off by default on the hls.js path too: no subtitle
+      // track selected and subtitle display off, re-asserted whenever
+      // hls.js (re)discovers subtitle tracks for this stream.
+      try { hls.subtitleDisplay = false; } catch(e){}
+      try { hls.subtitleTrack = -1; } catch(e){}
       hls.loadSource(ch.url);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, function(){ attemptPlay(seq, 'manifest-parsed'); });
+      hls.on(Hls.Events.MANIFEST_PARSED, function(){ disableCaptions(); attemptPlay(seq, 'manifest-parsed'); });
+      if (Hls.Events.SUBTITLE_TRACKS_UPDATED) hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function(){ disableCaptions(); });
+      if (Hls.Events.SUBTITLE_TRACK_SWITCH) hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, function(){ disableCaptions(); });
       hls.on(Hls.Events.LEVEL_LOADED, function(){ attemptPlay(seq, 'level-loaded'); });
       hls.on(Hls.Events.ERROR, function(evt, data){ onHlsError(data); });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')){
