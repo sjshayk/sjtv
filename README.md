@@ -1,6 +1,6 @@
 # SJTV
 
-SJTV LIVE — a simple web M3U player. Watch the Sample World News channel list, or load any public .m3u playlist by link, file, or paste.
+SJTV LIVE — a simple web M3U player, built by Muse. Watch the Sample World News channel list, or load any public .m3u playlist by link, file, or paste.
 
 Live page: https://sjshayk.github.io/sjtv/
 
