@@ -389,7 +389,7 @@
         <h2>Saved Lists</h2>
         <div id="savedListsWrap">
           <span class="savedchip">
-            <button type="button" class="load" id="btnBuiltinSJTV" title="Load the built-in World News list">World News · 26 channels · Built-in</button>
+            <button type="button" class="load" id="btnBuiltinSJTV" title="Load the built-in World News list">World News · Built-in</button>
           </span>
           <span class="savedchip">
             <button type="button" class="load" id="btnViewFavs" title="Load your favorites list">Favorites</button>
@@ -506,66 +506,23 @@
     })(0);
   }
 
-  var BUILTIN_VERSION = 13;
-  var NEWSY_URL = 'https://547f72e6652371c3.mediapackage.us-east-1.amazonaws.com/out/v1/e3e6e29095844c4ba7d887f01e44a5ef/index.m3u8';
-  var CHEDDAR_URL = 'https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8';
+  var BUILTIN_VERSION = 14;
+  var BUILTIN_URL = 'https://sjshayk.github.io/sjtv/playlists/sj-world-news.m3u';
 
   var ABC_LIVE_URL = 'https://jmp2.uk/plu-6508be683a0d700008c534e4.m3u8';
   var ABC_LIVE_OLD_URL = 'https://pb-0n3n2ej0w8pl9.akamaized.net/ABCNewsLive_Disney.m3u8';
-  var BUILTIN_M3U = [
+  var BUILTIN_FALLBACK_M3U = [
     '#EXTM3U',
     '#EXTINF:-1 channel-number="1" channel-number="" tvg-id="AlJazeera.qa@English" tvg-logo="http://pluspng.com/img-png/al-jazeera-png-al-jazeera-logo-1431.png" group-title="World News",Aljazeera English',
-    'https://live-hls-web-aje-gcp.thehlive.com/AJE/index.m3u8',
+    'https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8',
     '#EXTINF:-1 channel-number="2" channel-number="" tvg-id="BBC.News.(North.America).HD.us2" tvg-logo="https://seeklogo.com/images/B/bbc-news-logo-8648ABD044-seeklogo.com.png" group-title="World News",BBC World News',
-    'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8',
+    'https://vs-hls-push-ww.live.cf.md.bbci.co.uk/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8',
     '#EXTINF:-1 channel-number="3" channel-number="" tvg-logo="https://i.imgur.com/A1xzjOI.png" group-title="World News",DW English',
     'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8',
-    '#EXTINF:-1 channel-number="7" tvg-logo="https://i.imgur.com/43oHsHL.png" group-title="Business News",Yahoo! Finance',
-    'https://d1ewctnvcwvvvu.cloudfront.net/playlist.m3u8',
-    '#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/CNBC_2025.svg/960px-CNBC_2025.svg.png" group-title="Business News",CNBC UK (1080p)',
-    'https://amg01079-nbcuuk-amg01079c2-samsung-gb-1258.playouts.now.amagi.tv/playlist.m3u8',
-    '#EXTINF:-1 channel-number="9" tvg-logo="https://i.imgur.com/OuogLHx.png" group-title="Business News",Bloomberg Television',
-    'https://www.bloomberg.com/media-manifest/streams/us.m3u8',
-    '#EXTINF:-1 tvg-id="CheddarNews.us@SD" tvg-logo="https://i.imgur.com/tuP9GW8.png" group-title="Business News",Cheddar News',
-    'https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8',
-    '#EXTINF:-1 channel-number="11" tvg-logo="https://i.imgur.com/8t9mdg9.png" group-title="World News",Euronews English',
-    'https://streams.sofast.tv/euronewsen/live/eds/euronews-en/25017/euronews-en.m3u8',
-    '#EXTINF:-1 channel-number="12" channel-id="" tvg-id="ReutersTV.us2" tvg-name="Reuters TV" tvg-logo="https://provider-static.plex.tv/epg/cms/production/8cf9c131-2d92-4d91-86b1-22ef458d703f/reuters_reutersnow_1RDX.png" group-title="World News",Reuters TV',
-    'https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playlist/amg00453-reuters-reuters-rakutenuk/playlist.m3u8',
-    '#EXTINF:-1 channel-number="15" tvg-id="" tvg-logo="https://i.ibb.co/nP9xpck/trtw.png" group-title="World News",TRT World',
-    'https://tv-trtworld.medya.trt.com.tr/master.m3u8',
-    '#EXTINF:-1 channel-number="16" tvg-id="AlArabiyaEnglish.sa@SD" tvg-logo="https://images.seeklogo.com/logo-png/22/1/al-arabiya-news-channel-logo-png_seeklogo-221044.png" group-title="World News",Al Arabiya English',
-    'https://live.alarabiya.net/alarabiapublish/english/playlist_dvr.m3u8',
-    '#EXTINF:-1 channel-number="17" tvg-id="i24NEWSEnglishWorld.il@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/LOGO_i24NEWS.png/960px-LOGO_i24NEWS.png" group-title="World News",i24 News',
-    'https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8',
-    '#EXTINF:-1 channel-number="18" tvg-id="France24.fr@English" tvg-logo="https:// iconape.com/wp-content/png_logo_vector/france-24-logo.png" group-title="World News",France 24',
-    'https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8',
-    '#EXTINF:-1 channel-number="19" tvg-id="RT.ru@SD" tvg-logo="https://cdn.imgbin.com/23/15/21/imgbin-rt-russia-google-news-whataboutism-russia-JmKqcZN1MCUwQpZVFE7abf5da.jpg" group-title="World News",RT',
-    'https://rt-glb.rttv.com/dvr/rtnews/playlist.m3u8',
-    '#EXTINF:-1 channel-number="20" tvg-id="CGTN.cn@SD" tvg-logo="https://images.seeklogo.com/logo-png/32/1/cgtn-logo-png-seeklogo-326602.png" group-title="World News",CGTN',
-    'https://english-livebkali.cgtn.com/live/encgtn.m3u8',
-    '#EXTINF:-1 channel-number="21" tvg-id="NHK.jp@SD" tvg-logo="https://logos-world.net/wp-content/uploads/2023/04/NHK-Logo.png" group-title="World News",NHK World',
-    'https://media-tyo.hls.nhkworld.jp/hls/w/live/master.m3u8',
-    '#EXTINF:-1 channel-number="22" tvg-id="ABC.au@SD" tvg-logo="https://vignette.wikia.nocookie.net/logopedia/images/e/e9/ABCNEWS1965ALT.png" group-title="World News", ABC News AUS',
-    'https://c.mjh.nz/abc-news.m3u8',
-    '#EXTINF:-1 channel-number="23" tvg-logo="https://i.imgur.com/Wc5Z3iS.png" group-title="World News",WION',
-    'https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8',
-    '#EXTINF:-1 tvg-id="CBCNewsNetwork.ca@SD" tvg-logo="https://i.imgur.com/SjTdhvJ.png" group-title="World News",CBC News',
-    'https://d2ny9lo79ujali.cloudfront.net/CBC_News_International.m3u8',
-    '#EXTINF:-1 channel-number="24" tvg-id="99991377" tvg-logo="https://logos-world.net/wp-content/uploads/2023/09/ABC-News-Emblem.png" group-title="US News",ABC News Live',
-    'https://jmp2.uk/plu-6508be683a0d700008c534e4.m3u8',
-    '#EXTINF:-1 channel-number="25" tvg-id="99991158" tvg-logo="https://abn-prod.s3.amazonaws.com/wp-content/uploads/sites/3/2019/04/cbsnews400.jpg" group-title="US News",CBS News',
-    'https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8?iu=/8264/vaw-can/mobile_web/cbsnews_mobile',
     '#EXTINF:-1 channel-number="26" tvg-id="99991247" tvg-name="NBC News NOW" tvg-logo="https://image.xumo.com/v1/channels/channel/99991247/168x168.png?type=color_onBlack" group-title="US News",NBC NEWS 24/7',
     'https://livehub-voidnet.onrender.com/cluster/streamcore/us/NBC_REDIS.m3u8',
     '#EXTINF:-1 tvg-id="Newsy.us@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Newsy_2021.svg/960px-Newsy_2021.svg.png" group-title="US News",Newsy',
-    'https://547f72e6652371c3.mediapackage.us-east-1.amazonaws.com/out/v1/e3e6e29095844c4ba7d887f01e44a5ef/index.m3u8',
-    '#EXTINF:-1 channel-number="27" tvg-id="" tvg-logo="https://latestlogo.com/wp-content/uploads/2024/02/ndtv-24x7-dark-logo.png" tvg-name="NDTV" group-title="India",NDTV24x7',
-    'https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/ndtv24x7master.m3u8',
-    '#EXTINF:-1 channel-number="31" tvg-logo="http://akm-img-a-in.tosshub.com/sites/all/themes/itg/logo.png" group-title="India",India Today',
-    'https://livehub-voidnet.onrender.com/cluster/streamcore/in/INDIATODAY_StreamOrchestrator.m3u8',
-    '#EXTINF:-1 channel-number="32" tvg-id="RepublicTV.in@SD tvg-logo="https://images.seeklogo.com/logo-png/64/1/republic-tv-logo-png_seeklogo-647135.png" group-title="India",Republic TV',
-    'https://samsung-republictv.amagi.tv/ts-ap-s1-n1/playlist/samsungin-republictv-samsungindia/playlist.m3u8'
+    'https://547f72e6652371c3.mediapackage.us-east-1.amazonaws.com/out/v1/e3e6e29095844c4ba7d887f01e44a5ef/index.m3u8'
   ].join('\n');
 
   var state = {
@@ -2335,6 +2292,10 @@
     }
     attempts = attempts.concat(githubMirrorUrls(direct));
     attempts.push({ method: 'Direct', url: direct });
+    if (direct === BUILTIN_URL){
+      attempts = attempts.filter(function(a){ return a.method !== 'Direct'; });
+      attempts.unshift({ method: 'Direct', url: direct });
+    }
 
     var proxyAttempts = corsProxyRoutes(original).map(function(r){
       return { method: 'Proxy · ' + r.name, url: r.url, proxy: true };
@@ -2601,15 +2562,40 @@
     if (chans.length) showSavePastedPlaylist(chans);
   });
 
-  function loadBuiltinNews(autoplayFirst, viaFallback){
-    setPlaylist(parseM3U(BUILTIN_M3U), 'World News', autoplayFirst, { kind: 'builtin', label: 'World News', url: '', snapshot: true, builtinVersion: BUILTIN_VERSION });
-    if (viaFallback){
-      if (cspConnectBlocked){
-        toast('Every download route, proxies included, was refused by the web link’s security policy — loaded the built-in copy of World News instead. This link loads live in the Muse app.', 8000);
-      } else {
-        toast('Network routes blocked — loaded built-in copy of World News (Oct 21).', 6000);
-      }
+  function builtinDesc(){
+    return { kind: 'builtin', label: 'World News', url: BUILTIN_URL, builtinVersion: BUILTIN_VERSION };
+  }
+  function setBuiltinChip(n){
+    var chipBtn = $('btnBuiltinSJTV');
+    if (!chipBtn) return;
+    chipBtn.textContent = n > 0
+      ? 'World News · ' + n + ' channels · Built-in'
+      : 'World News · Built-in';
+  }
+  function showBuiltinFallback(autoplayFirst, viaFallback){
+    setPlaylist(parseM3U(BUILTIN_FALLBACK_M3U), 'World News', autoplayFirst, builtinDesc());
+    setBuiltinChip(0);
+    if (cspConnectBlocked){
+      toast('Every download route was refused by this page’s security policy — showing the built-in emergency copy of World News (5 channels) instead. The full list loads in the Muse app or on the GitHub page.', 8000);
+    } else if (viaFallback){
+      toast('Network routes blocked — loaded the built-in emergency copy of World News (5 channels).', 6000);
+    } else {
+      toast('Couldn’t reach the published World News list — showing the built-in emergency copy (5 channels).', 6000);
     }
+  }
+  function loadBuiltinNews(autoplayFirst, viaFallback, opts){
+    opts = opts || {};
+    fetchPlaylist(BUILTIN_URL, 'World News', builtinDesc(), autoplayFirst, {
+      silentProxySkip: !!opts.silentProxySkip,
+      onSuccess: function(chans){
+        setBuiltinChip(chans.length);
+        if (opts.onSuccess) opts.onSuccess(chans);
+      },
+      onFail: function(){
+        showBuiltinFallback(autoplayFirst, viaFallback);
+        if (opts.onFail) opts.onFail();
+      }
+    });
   }
   function syncSourceUI(){
     var d = state.sourceDesc || {};
@@ -2625,9 +2611,14 @@
     var url = d.url;
     if (!url) return;
 
+    if (d.kind === 'builtin'){
+      fetchPlaylist(BUILTIN_URL, 'World News', builtinDesc(), undefined, {
+        onSuccess: function(chans){ setBuiltinChip(chans.length); }
+      });
+      return;
+    }
     var label = d.label || 'World News';
-    var kind = d.kind === 'builtin' ? 'url' : (d.kind || 'url');
-    fetchPlaylist(url, label, { kind: kind, label: label, url: url });
+    fetchPlaylist(url, label, { kind: d.kind || 'url', label: label, url: url });
   });
 
   function renderSavedLists(){
@@ -2828,14 +2819,14 @@
   }
   renderSavedLists();
 
-  try {
-    var builtinCountForChip = parseM3U(BUILTIN_M3U).length;
-    var chipBtn = $('btnBuiltinSJTV');
-    if (chipBtn) chipBtn.textContent = 'World News · ' + builtinCountForChip + ' channels · Built-in';
-  } catch(e){}
-
   var savedDesc = (saved && saved.sourceDesc) ? saved.sourceDesc : null;
-  if (savedDesc && (savedDesc.kind === 'builtin' || savedDesc.snapshot === true)) savedDesc.url = '';
+  var isBuiltinSaved = !!savedDesc && (savedDesc.kind === 'builtin' || savedDesc.snapshot === true);
+  if (isBuiltinSaved) savedDesc.url = BUILTIN_URL;
+  var builtinStale = false;
+  if (isBuiltinSaved && saved && Array.isArray(saved.channels) && saved.channels.length){
+    var storedBuiltinVersion = savedDesc.builtinVersion || savedDesc.snapshotVersion || 0;
+    builtinStale = storedBuiltinVersion !== BUILTIN_VERSION;
+  }
 
   if (savedDesc && savedDesc.label === 'SJTV' &&
       (savedDesc.kind === 'builtin' || savedDesc.snapshot === true)){
@@ -2843,54 +2834,25 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e){}
   }
 
-  if (saved && savedDesc && Array.isArray(saved.channels) && saved.channels.length){
-
-    var isBuiltinIdentity = savedDesc.kind === 'builtin' || savedDesc.snapshot === true;
-    if (isBuiltinIdentity){
-      var storedBuiltinVersion = savedDesc.builtinVersion || savedDesc.snapshotVersion || 0;
-      var hasNewsyStored = saved.channels.some(function(c){ return c && c.url === NEWSY_URL; });
-      var hasCheddarStored = saved.channels.some(function(c){ return c && c.url === CHEDDAR_URL; });
-      var freshBuiltin = parseM3U(BUILTIN_M3U);
-      if (!hasNewsyStored || !hasCheddarStored || storedBuiltinVersion !== BUILTIN_VERSION || saved.channels.length !== freshBuiltin.length){
-        saved.channels = freshBuiltin;
-        savedDesc.builtinVersion = BUILTIN_VERSION;
-        if (saved.sourceDesc) saved.sourceDesc.builtinVersion = BUILTIN_VERSION;
-
-        try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e){}
-      }
-    }
+  function applySavedNow(sv){
+    if (!sv || !sv.nowUrl) return;
+    var i = indexOfUrl(state.allChannels, sv.nowUrl);
+    if (i >= 0){ state.now = state.allChannels[i]; state.index = i; updateNowPlaying(); }
   }
-  if (saved && savedDesc && savedDesc.kind === 'builtin' && !Array.isArray(saved.channels)){
-
-    savedDesc.builtinVersion = BUILTIN_VERSION;
-    if (saved.sourceDesc) saved.sourceDesc.builtinVersion = BUILTIN_VERSION;
-  }
-  var legacySource = !!savedDesc && (savedDesc.kind === 'starter' || savedDesc.kind === 'world' ||
-    savedDesc.label === 'Starter list' || savedDesc.label === 'iptv-org world news');
-
-  if (legacySource){
-    syncFavUI();
-    loadBuiltinNews(false, false);
-
-    if (saved && saved.nowUrl){
-      var li = indexOfUrl(state.allChannels, saved.nowUrl);
-      if (li >= 0){ state.now = state.allChannels[li]; state.index = li; updateNowPlaying(); }
-    }
-    bootAutoplay();
-  } else if (saved && Array.isArray(saved.channels) && saved.channels.length){
-    var desc = saved.sourceDesc || { kind: 'custom', label: 'Saved playlist', url: '' };
-    state.allChannels = saved.channels;
+  function restoreSavedChannels(sv){
+    var desc = sv.sourceDesc || { kind: 'custom', label: 'Saved playlist', url: '' };
+    state.allChannels = sv.channels;
     migrateChannelList(state.allChannels);
     state.source = desc.label;
     state.sourceDesc = desc;
 
     var nowCh = null;
-    if (saved.nowUrl){
-      var ai = indexOfUrl(state.allChannels, saved.nowUrl);
+    if (sv.nowUrl){
+      var ai = indexOfUrl(state.allChannels, sv.nowUrl);
       if (ai >= 0) nowCh = state.allChannels[ai];
-      else { var fi = indexOfUrl(state.favorites, saved.nowUrl); if (fi >= 0) nowCh = state.favorites[fi]; }
+      else { var fi = indexOfUrl(state.favorites, sv.nowUrl); if (fi >= 0) nowCh = state.favorites[fi]; }
     }
-    state.view = (saved.view === 'favs' && state.favorites.length) ? 'favs' : 'all';
+    state.view = (sv.view === 'favs' && state.favorites.length) ? 'favs' : 'all';
     state.channels = state.view === 'favs' ? state.favorites : state.allChannels;
     syncSrcPill();
     syncViewTabs();
@@ -2918,20 +2880,47 @@
         }
       });
     }
-  } else if (saved && saved.sourceDesc && saved.sourceDesc.kind === 'builtin'){
+  }
 
+  var legacySource = !!savedDesc && (savedDesc.kind === 'starter' || savedDesc.kind === 'world' ||
+    savedDesc.label === 'Starter list' || savedDesc.label === 'iptv-org world news');
+
+  if (legacySource){
     syncFavUI();
-    loadBuiltinNews(false, false);
-    if (saved.nowUrl){
-      var bi = indexOfUrl(state.allChannels, saved.nowUrl);
-      if (bi >= 0){
-        state.now = state.allChannels[bi];
-        state.index = bi;
-        updateNowPlaying();
+    loadBuiltinNews(false, false, {
+      silentProxySkip: true,
+      onSuccess: function(){ applySavedNow(saved); bootAutoplay(); },
+      onFail: function(){ applySavedNow(saved); bootAutoplay(); }
+    });
+  } else if (isBuiltinSaved && saved && Array.isArray(saved.channels) && saved.channels.length){
+    syncFavUI();
+    fetchPlaylist(BUILTIN_URL, 'World News', builtinDesc(), false, {
+      silentProxySkip: true,
+      onSuccess: function(chans){
+        setBuiltinChip(chans.length);
+        applySavedNow(saved);
+        bootAutoplay();
+      },
+      onFail: function(){
+        if (builtinStale){
+          showBuiltinFallback(false, false);
+          applySavedNow(saved);
+          bootAutoplay();
+        } else {
+          restoreSavedChannels(saved);
+          setBuiltinChip(saved.channels.length);
+        }
       }
-    }
-
-    bootAutoplay();
+    });
+  } else if (saved && Array.isArray(saved.channels) && saved.channels.length){
+    restoreSavedChannels(saved);
+  } else if (isBuiltinSaved){
+    syncFavUI();
+    loadBuiltinNews(false, false, {
+      silentProxySkip: true,
+      onSuccess: function(){ applySavedNow(saved); bootAutoplay(); },
+      onFail: function(){ applySavedNow(saved); bootAutoplay(); }
+    });
   } else if (saved && saved.sourceDesc && saved.sourceDesc.url){
 
     syncFavUI();
@@ -2943,19 +2932,34 @@
         bootAutoplay();
       },
       onFail: function(){
-        loadBuiltinNews(false, true);
-        bootAutoplay();
+        loadBuiltinNews(false, true, {
+          silentProxySkip: true,
+          onSuccess: function(){ bootAutoplay(); },
+          onFail: function(){ bootAutoplay(); }
+        });
       }
     });
   } else {
 
-    loadBuiltinNews(false, false);
-    if (state.allChannels.length){
-      state.now = state.allChannels[0];
-      state.index = 0;
-      updateNowPlaying();
-      bootAutoplay();
-    }
+    loadBuiltinNews(false, false, {
+      silentProxySkip: true,
+      onSuccess: function(){
+        if (state.allChannels.length){
+          state.now = state.allChannels[0];
+          state.index = 0;
+          updateNowPlaying();
+          bootAutoplay();
+        }
+      },
+      onFail: function(){
+        if (state.allChannels.length){
+          state.now = state.allChannels[0];
+          state.index = 0;
+          updateNowPlaying();
+          bootAutoplay();
+        }
+      }
+    });
   }
 })();
 </script>
