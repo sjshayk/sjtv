@@ -389,7 +389,7 @@
         <h2>Saved Lists</h2>
         <div id="savedListsWrap">
           <span class="savedchip">
-            <button type="button" class="load" id="btnBuiltinSJTV" title="Load the built-in World News list">World News · Built-in</button>
+            <button type="button" class="load" id="btnBuiltinSJTV" title="Load the Sample World News list">World News · Sample</button>
           </span>
           <span class="savedchip">
             <button type="button" class="load" id="btnViewFavs" title="Load your favorites list">Favorites</button>
@@ -2570,8 +2570,8 @@
     var chipBtn = $('btnBuiltinSJTV');
     if (!chipBtn) return;
     chipBtn.textContent = n > 0
-      ? 'World News · ' + n + ' channels · Built-in'
-      : 'World News · Built-in';
+      ? 'World News · ' + n + ' channels · Sample'
+      : 'World News · Sample';
   }
   function showBuiltinFallback(autoplayFirst, viaFallback){
     setPlaylist(parseM3U(BUILTIN_FALLBACK_M3U), 'World News', autoplayFirst, builtinDesc());
