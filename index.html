@@ -8,11 +8,7 @@
 <title>SJTV LIVE</title>
 <meta name="apple-mobile-web-app-title" content="SJTV LIVE" />
 <meta name="description" content="SJTV — a m3u player. Watch the built-in channel list or load any public .m3u playlist." />
-<!-- Link preview: the preview image is a MOBILE-width rendering of this
-     page (assets/preview-mobile.jpg, 1200×630), so share / link-preview
-     cards show the phone layout — full-width player with the panels
-     stacked under it — instead of the desktop two-column layout that a
-     wide screenshot of the page would show. -->
+
 <meta property="og:type" content="website" />
 <meta property="og:title" content="SJTV LIVE" />
 <meta property="og:description" content="SJTV — a m3u player. Watch the built-in channel list or load any public .m3u playlist." />
@@ -38,12 +34,7 @@
     --chip:#232b33; --input:#10151a;
     --shadow:0 10px 30px rgba(0,0,0,.45);
     --radius:14px;
-    /* pinned player offset — FLUSH at the viewport top: only the
-       device safe-area inset the OS / browser chrome itself requires,
-       no additional designed gap (reverses the earlier +16px offset).
-       The page header is not sticky, so when it has
-       scrolled away the pinned player sits at top:0 (plus safe-area)
-       with its full frame visible. */
+
     --stuck-top:env(safe-area-inset-top, 0px);
   }
   @media (prefers-color-scheme: light){
@@ -62,8 +53,7 @@
     font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;
     min-height:100svh; min-height:100dvh;
-    /* Page zoom is off by request (see the viewport meta and the zoom-lock
-       script): vertical scrolling stays, pinch / double-tap zoom does not. */
+
     touch-action:pan-y;
   }
   button{font-family:inherit; cursor:pointer}
@@ -71,13 +61,8 @@
   button,input,select,textarea,a,.chan{touch-action:manipulation}
   svg{display:block}
 
-  /* Phone-width everywhere (by request): the whole page is ONE centered
-     column no wider than a phone, at every viewport width — desktop,
-     tablet, share-page renders and link-preview screenshots all show
-     the same single-column phone layout as the phone itself. */
   .wrap{width:100%; max-width:480px; margin:0 auto; padding:clamp(8px,2vw,14px) clamp(10px,2.5vw,18px) 14px}
 
-  /* ---------- header strip ---------- */
   .topbar{display:flex; align-items:center; gap:12px; flex-wrap:nowrap; margin-bottom:8px}
   .live-dot{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; letter-spacing:.14em; text-transform:uppercase}
   .live-dot i{width:9px;height:9px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 0 rgba(229,72,77,.5); animation:pulse 1.8s infinite}
@@ -88,8 +73,7 @@
   .pill b{color:var(--text)}
   .live-dot{flex:none}
   #srcPill{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  /* Keep-screen-on is icon-only (sun glyph, no text label) so the first
-     line fits title + playlist name + this button on phone width. */
+
   #wakeBtn{flex:none; width:38px; height:38px; padding:0; justify-content:center; border-radius:50%}
   #wakeBtn svg{width:20px; height:20px}
   .btn{
@@ -103,74 +87,28 @@
   .btn.active{background:var(--text); color:var(--bg); border-color:var(--text)}
   .btn svg{width:17px;height:17px; flex:none}
 
-  /* ---------- page footer ---------- */
   .pagefoot{display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:18px; padding:14px 4px 6px; border-top:1px solid var(--line); color:var(--muted)}
   .foot-follow{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:7px; font-size:13.5px; font-weight:600; color:var(--muted)}
   .pagefoot a{display:inline-flex; align-items:center; gap:6px; color:var(--text); text-decoration:none}
   .pagefoot a:hover{text-decoration:underline}
   .pagefoot a svg{width:16px; height:16px; flex:none}
 
-  /* ---------- layout ---------- */
-  /* Single column at EVERY width (phone-width page): the player sits on
-     top and the playlist / saved-lists / favorites panels stack below
-     it — there is no two-column desktop arrangement anymore. */
   .layout{display:grid; grid-template-columns:1fr; gap:10px; align-items:start}
   .layout>*{min-width:0}
 
   .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
   .panel-pad{padding:11px 12px}
 
-  /* ---------- player ---------- */
   .stage-wrap{position:relative}
   .stage{position:relative; background:#000; border-radius:var(--radius); overflow:hidden; aspect-ratio:16/9; width:100%; touch-action:pan-y; outline:none; -webkit-tap-highlight-color:transparent}
-  /* No blue focus ring / overlay on the player: focus is parked on the
-     stage programmatically on every channel switch (focusStage), and
-     WebKit drew its bright blue outline around the whole video each
-     time. Focus parking and keyboard / remote handling are unchanged —
-     only the visible outline is suppressed, on the stage and the
-     video element alike. */
+
   .stage:focus, .stage:focus-visible, .stage video, .stage video:focus{outline:none}
-  /* pinned (sticky) state — same element, just fixed, so the stream never
-     reloads. It keeps the true 16:9 shape (width capped on wide screens)
-     and the video is letterboxed via object-fit:contain, so the WHOLE
-     picture always shows — the old forced 168/196px height cropped
-     roughly a quarter of the frame. It sits FLUSH at the viewport top
-     (var(--stuck-top): safe-area only, no extra gap) — the page header
-     scrolls away, so flush means touching the viewport top (or the
-     bottom of any bar the browser itself keeps), not sliding under it,
-     and the whole 16:9 frame plus mini-bar stays in view. All four
-     corners are rounded with the same radius as the bottom corners;
-     the position stays flush at the top, so only the small corner
-     triangles of page background show through the curve. */
-  /* No max-height here on purpose: aspect-ratio + an inline width +
-     max-height made WebKit shrink the WHOLE pinned box to satisfy the
-     cap — invisible in portrait (the width-derived height never hits
-     64vh), but rotating to landscape collapses the viewport height
-     (especially inside the share page's iframe, where browser chrome
-     and host banners eat half the screen), so the cap engaged and the
-     pinned player collapsed to a small floating box with its mini-bar
-     crushed. positionStuck() now sets an explicit width + height pair
-     that honors the cap itself, so the browser never re-solves it. */
+
   .stage.stuck{position:fixed; top:var(--stuck-top); z-index:40; aspect-ratio:16/9; height:auto; max-width:660px; border-radius:var(--radius); box-shadow:0 14px 34px rgba(0,0,0,.55)}
-  /* True fullscreen: the stage fills the whole screen, square corners,
-     the video letterboxed (contain) so nothing is ever cropped. */
+
   .stage:fullscreen, .stage:-webkit-full-screen{width:100%; height:100%; max-width:none; max-height:none; aspect-ratio:auto; border-radius:0; background:#000}
   .stage:fullscreen video, .stage:-webkit-full-screen video{object-fit:contain}
-  /* On-screen controls live ONLY in the middle of the player — one
-     set, in the same place in the normal and pinned (stuck) layouts,
-     so scrolling up / down never changes them. The set is the three
-     round tap buttons spread DISTANT across the player — Previous
-     at the far left, Play/Pause in the centre, Next at the far
-     right. There is no second, close-together set: the old pinned
-     layout hid those spread-out buttons and swapped in a clustered
-     centre pill (the mini-bar), so the controls visibly changed
-     every time the player pinned / unpinned on scroll. That pill
-     is retired — .mini-bar never displays in any layout, and the
-     tap buttons stay exactly as they are when the stage pins.
-     Visibility is driven by the .controls-on class (see the
-     auto-hide script): shown on load, on any touch of the player,
-     and while paused; auto-hidden a few seconds after the last
-     touch while a channel plays. */
+
   .stage.stuck .announce{padding:26px 14px 14px}
   .stage.stuck .announce .name{font-size:27px}
   .mini-bar{display:none}
@@ -180,29 +118,21 @@
   .mini-meta{min-width:0; flex:1}
   .mini-name{font-weight:700; font-size:16px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .mini-sub{font-size:12px; color:rgba(255,255,255,.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  /* fullscreen control — lives INSIDE the player (bottom-right of the
-     stage), the only fullscreen button on the page */
+
   .stage-fs{position:absolute; right:12px; bottom:12px; z-index:7; width:50px; height:50px; border-radius:12px; border:1px solid rgba(255,255,255,.4); background:rgba(10,12,14,.66); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
   .stage-fs svg{width:23px; height:23px}
   .stage-fs:active{transform:scale(.94)}
   .stage-fs.on{background:var(--accent); border-color:var(--accent-dark)}
-  /* the fullscreen button belongs to the same auto-hiding control
-     set: it fades out with the middle controls and comes back on
-     the next touch of the player */
+
   .stage .stage-fs{opacity:0; pointer-events:none; transition:opacity .25s}
   .stage.controls-on .stage-fs, .stage .stage-fs:focus-visible{opacity:1; pointer-events:auto}
   @media (prefers-reduced-motion: reduce){ .stage .stage-fs{transition:none} }
-  /* same bottom-right corner AND same size in the pinned layout too —
-     no on-video control changes size or place when the stage pins */
+
   .stage video{width:100%; height:100%; display:block; background:#000; object-fit:contain}
-  /* middle-band tap zones: the hit area is a band across the vertical
-     middle of the player instead of the full height, so the buttons
-     live in the middle section and a stray tap above or below them
-     only reveals the controls instead of skipping a channel */
+
   .stage .tapzone{position:absolute; top:50%; transform:translateY(-50%); height:112px; max-height:100%; width:22%; z-index:3; background:transparent; border:0; color:#fff; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .25s}
   .stage .tapzone.left{left:0} .stage .tapzone.right{right:0}
-  /* center play/pause — same round translucent overlay as PREV / NEXT,
-     just centered: icon only, no label, same show / fade behavior */
+
   .stage .tapzone.center{left:50%; right:auto; width:36%; transform:translate(-50%,-50%)}
   .stage .tapzone span{background:rgba(0,0,0,.55); border-radius:50%; width:64px; height:64px; display:flex; align-items:center; justify-content:center}
   .stage .tapzone svg{width:30px;height:30px}
@@ -218,34 +148,23 @@
   .stage-msg{position:absolute; left:12px; top:12px; z-index:5; background:rgba(10,12,14,.78); color:#fff; font-size:13px; font-weight:600; padding:7px 11px; border-radius:8px; display:none; max-width:min(92%,560px)}
   .stage-msg.on{display:block}
   .stage-msg.err{background:rgba(140,25,28,.92)}
-  /* tap-to-play — appears only when the browser blocks autoplay after
-     every retry (e.g. a media-key switch with no tap gesture on a
-     slow-starting stream). One real tap always starts playback. */
+
   .tapplay{position:absolute; inset:0; z-index:8; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:rgba(5,7,9,.62); color:#fff; border:0; width:100%; cursor:pointer; font:inherit; padding:16px}
   .tapplay.on{display:flex}
   .tapplay .tp-ic{width:84px; height:84px; flex:none; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,.5)}
   .tapplay .tp-ic svg{width:40px; height:40px; margin-left:4px}
   .tapplay .tp-label{font-family:"Barlow Condensed",sans-serif; font-size:27px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; line-height:1}
   .tapplay .tp-name{font-size:15px; font-weight:600; color:rgba(255,255,255,.88); max-width:88%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  /* tap-to-play keeps the same size in the pinned layout too — no
-     on-video control changes when the stage pins / unpins */
-  /* tap-for-sound pill — shown while the boot-autoplay stream is playing
-     MUTED because the browser blocked sound on a cold load. One tap
-     unmutes the stream that is already playing (no reload). */
+
   .soundpill{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:9; display:none; align-items:center; gap:8px; background:var(--accent); color:#fff; border:1px solid var(--accent-dark); border-radius:999px; padding:12px 22px; font:inherit; font-size:16px; font-weight:700; box-shadow:0 10px 26px rgba(0,0,0,.5); cursor:pointer; white-space:nowrap}
   .soundpill.on{display:inline-flex}
   .soundpill:active{transform:translateX(-50%) scale(.96)}
-  /* Channel-change banner removed by request: no text overlay on the
-     video when the channel changes — the channel name already shows in
-     the selector bar directly under the player. The element stays in
-     the markup but never displays, whatever the script does. */
+
   .announce{display:none}
   .announce.on{opacity:1; transform:none}
   .announce .num{font-family:"Barlow Condensed",sans-serif; font-size:15px; letter-spacing:.22em; font-weight:600; color:#ffb3b5; text-transform:uppercase}
   .announce .name{font-family:"Barlow Condensed",sans-serif; font-size:clamp(30px,5.2vw,52px); line-height:1.02; font-weight:700; text-transform:uppercase; letter-spacing:.01em}
 
-  /* channel selector bar + dropdown panel — the channel list lives
-     behind this one bar under the player and is hidden until tapped */
   .chan-select{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); color:var(--text); padding:9px 14px; min-height:54px}
   .chan-select:active{background:var(--panel2)}
   .chan-select .cs-meta{min-width:0; flex:1}
@@ -254,18 +173,7 @@
   .chan-select .cs-chev{width:22px; height:22px; flex:none; color:var(--muted); transition:transform .2s}
   .chan-select.open .cs-chev{transform:rotate(180deg)}
   @media (prefers-reduced-motion: reduce){ .chan-select .cs-chev{transition:none} }
-  /* The panel is a true dropdown in every view — All channels and
-     Favorites share this one panel, so both behave identically: it
-     OVERLAYS the page below the selector bar instead of expanding in
-     flow, so opening it never grows or scrolls the page. The panel is
-     a flex column capped to the space actually left in the viewport
-     (fitChanPanel() sets the exact cap on open; the CSS cap here is
-     the no-JS fallback) and the channel list flexes to fill what
-     remains, scrolling inside the dropdown only. Without the cap the
-     panel ran ~700px tall from a selector bar already halfway down
-     the phone screen, so most of it sat past the bottom edge and the
-     page scrolled to reach it — a long list in effect, whatever view
-     was selected. */
+
   .chan-dd{position:relative}
   .chan-panel{
     position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:30;
@@ -278,20 +186,17 @@
   }
   .chan-panel[hidden]{display:none}
   .chan-panel .list{flex:1 1 auto; min-height:0; max-height:none}
-  /* channel-row avatar (also used by the announce / mini surfaces) */
+
   .avatar{width:46px;height:46px;border-radius:10px; background:var(--panel2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; overflow:hidden; flex:none; position:relative}
   .avatar .ini{font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:19px; color:var(--muted)}
   .avatar img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#fff; padding:3px}
 
-  /* ---------- sidebar ---------- */
   .side{display:flex; flex-direction:column; gap:8px}
   .side h2{font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 8px}
   .urlrow{display:flex; gap:8px}
   .urlrow input{flex:1; min-width:0; background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:16px}
   .btnrow{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
-  /* Load-panel action trio: Open .m3u file / Paste playlist / Refresh from URL
-     on ONE line — equal thirds, labels never wrap. Font scales with the
-     panel's own width (cqw) so the row fits from 320px phones to desktop. */
+
   .loadpanel{container-type:inline-size}
   .btnrow.trio{flex-wrap:nowrap; gap:6px}
   .btnrow.trio .btn{
@@ -302,14 +207,7 @@
   }
   .btnrow.trio .btn svg{width:14px; height:14px}
   @media (max-width:349px){ .btnrow.trio .btn svg{display:none} }
-  /* Favorites Options action row: Save as new list… / Download .m3u /
-     Copy .m3u text on ONE line — equal shares, labels never wrap.
-     (The old "View favorites" button moved up into Saved Lists as the
-     "Favorites" chip.) Same recipe as the trio: font scales with the
-     panel's own width (cqw) so the longest labels fit their share from
-     320px phones to the desktop sidebar. The one icon in this row
-     (Download) is dropped — the panel is never wide enough for
-     icon + full label in a share. */
+
   .favpanel{container-type:inline-size}
   .btnrow.quad{flex-wrap:nowrap; gap:5px}
   .btnrow.quad .btn{
@@ -321,20 +219,12 @@
   .btnrow.quad .btn svg{display:none}
   .hint{font-size:12.5px; color:var(--faint); line-height:1.5; margin:10px 0 0}
   .hint code{background:var(--chip); padding:1px 5px; border-radius:5px; font-size:12px}
-  /* source / rights note — footer small print, always shown in the
-     page footer (not under the player) so it never pushes controls
-     or panels down the screen. It is part of the static footer
-     markup: no script condition hides it, so it renders on every
-     surface and in every saved state. */
+
   .srcnote{display:block; font-size:11.5px; font-weight:400; color:var(--muted); line-height:1.55; margin:0; padding:0 8px; width:100%; max-width:none; text-align:justify}
   .tools{display:flex; gap:8px; margin-bottom:10px}
   .tools input[type=search]{flex:1; min-width:0; background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:16px}
   .tools select{background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px; font-size:16px; min-width:0; max-width:150px}
 
-  /* Vertical-only, fluid scrolling: overflow-x is hidden so the list
-     can never be dragged or scrolled sideways (no horizontal scrollbar,
-     no sideways panning) — the rows always fit the panel width and the
-     list glides up/down with native momentum. */
   .list{max-height:min(560px,70dvh); overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; gap:6px; padding-right:2px; touch-action:pan-y; overscroll-behavior:contain}
   .chan{
     min-width:0;
@@ -348,9 +238,7 @@
   .chan .avatar{width:38px;height:38px;border-radius:8px}
   .chan .avatar .ini{font-size:15px}
   .chan .cmeta{min-width:0; flex:1}
-  /* display:block on the name / group so the nowrap + ellipsis rules
-     actually clip: as inline spans the text could overflow the row and
-     widen the list, which is what made sideways navigation possible. */
+
   .chan .cname{display:block; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .chan .cgrp{display:block; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .chan .eq{display:none; gap:2.5px; align-items:flex-end; height:16px; flex:none}
@@ -361,7 +249,6 @@
   @media (prefers-reduced-motion: reduce){ .chan .eq i{animation:none; height:10px} }
   .empty{color:var(--muted); font-size:14px; text-align:center; padding:26px 10px; line-height:1.55}
 
-  /* favorites */
   .chan{cursor:pointer}
   .chan .star{flex:none; width:36px; height:36px; border-radius:9px; border:1px solid transparent; background:transparent; color:var(--faint); display:inline-flex; align-items:center; justify-content:center; padding:0}
   .chan .star svg{width:20px; height:20px}
@@ -377,7 +264,6 @@
   .savedchip .del{width:21px; height:21px; flex:none; border-radius:50%; border:0; background:var(--panel); color:var(--muted); display:inline-flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0}
   .modal input[type=text]{width:100%; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:16px}
 
-  /* modal */
   .modal{position:fixed; inset:0; background:rgba(5,7,9,.66); display:none; align-items:center; justify-content:center; z-index:50; padding:16px}
   .modal.on{display:flex}
   .modal .box{background:var(--panel); border:1px solid var(--line); border-radius:16px; width:min(480px,100%); padding:18px; box-shadow:var(--shadow)}
@@ -407,7 +293,7 @@
   </div>
 
   <div class="layout">
-    <!-- PLAYER COLUMN -->
+
     <section class="panel" aria-label="Player">
       <div class="stage-wrap" id="stageWrap">
       <div class="stage controls-on" id="stage" tabindex="-1">
@@ -478,7 +364,6 @@
 
     </section>
 
-    <!-- SIDEBAR -->
     <aside class="side">
       <section class="panel panel-pad loadpanel" aria-label="Load playlist">
         <h2>Add your Playlist</h2>
@@ -588,16 +473,25 @@
   </div>
 </div>
 
+<div class="modal" id="proxyModal" role="dialog" aria-modal="true" aria-labelledby="proxyTitle">
+  <div class="box">
+    <h3 id="proxyTitle">Use public CORS proxies?</h3>
+    <p id="proxyText"></p>
+    <p style="overflow-wrap:anywhere; font-size:12.5px" id="proxyUrl"></p>
+    <p>The address above will be sent to these public proxy services, and whichever answers first will fetch it: proxy.corsfix.com, cors.eu.org, api.allorigins.win, api.codetabs.com, api.cors.lol. Only continue if you are fine with those services seeing this address.</p>
+    <div class="btnrow" style="margin-top:12px">
+      <button class="btn primary" id="btnProxyOk" type="button">Use proxies</button>
+      <button class="btn" id="btnProxyCancel" type="button">Not now</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
 <script>
 (function(){
   "use strict";
 
-  /* If the hls.js CDN script in <head> failed or timed out, pull it from
-     backup CDNs — without Hls, non-Safari browsers can't play at all.
-     playChannel() checks window.Hls at tap time, so a backup that lands
-     any time before the first channel tap is enough. */
   if (!window.Hls){
     var hlsBackups = [
       'https://unpkg.com/hls.js@1.5.14/dist/hls.min.js',
@@ -612,37 +506,13 @@
     })(0);
   }
 
-  /* ============ SJTV — the built-in source playlist
-     (bit.ly/sj-wnews), snapshotted 2026-10-21 and embedded verbatim —
-     plus CBC News, added 2026-10-26 from iptv-org's Canada list, and
-     i24 News, added 2026-10-30 from iptv-org's news list. FOX LOCAL
-     Washington DC (added 2026-10-28 from Tubi) was removed 2026-10-30
-     at the owner's request — it froze after ~10 seconds of playback.
-     (The additions are not in the Drive original behind the link.)
-     Every network route to that link (Drive redirect chain + public
-     CORS proxies) can be blocked by browser CORS rules, so this
-     built-in copy loads with ZERO network fetch and is the final
-     fallback when a URL load of the link fails everywhere.
-     "Refresh from URL" retries the network chain to pick up Drive edits. */
-  var SJ_WNEWS_URL = 'http://bit.ly/sj-wnews';
-  var SJ_BUILTIN_VERSION = 13;
+  var BUILTIN_VERSION = 13;
   var NEWSY_URL = 'https://547f72e6652371c3.mediapackage.us-east-1.amazonaws.com/out/v1/e3e6e29095844c4ba7d887f01e44a5ef/index.m3u8';
   var CHEDDAR_URL = 'https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8';
-  /* ABC News Live: the old Disney feed (ABC_LIVE_OLD_URL) is HEVC-only
-     (every variant hvc1 in MPEG-TS, no AVC), which this web player
-     cannot decode, and ABC's own AVC "Hudson" Akamai feed had every
-     variant playlist 404 when traced 2026-10-22. The working AVC
-     source is ABC News Live via Pluto TV, behind this jmp2.uk short
-     link: it 302-redirects to Pluto's stitcher, which mints a FRESH
-     session on every fetch — so only the short link is ever stored,
-     never a resolved Pluto session URL (those carry per-session
-     tokens that expire in ~24h). Its segments are standard AES-128
-     HLS with H.264/AVC video, like the other channels. Playback of
-     this URL must go through the NATIVE HLS path — see
-     isNativeOnlyUrl() below. */
+
   var ABC_LIVE_URL = 'https://jmp2.uk/plu-6508be683a0d700008c534e4.m3u8';
   var ABC_LIVE_OLD_URL = 'https://pb-0n3n2ej0w8pl9.akamaized.net/ABCNewsLive_Disney.m3u8';
-  var SJ_WNEWS_M3U = [
+  var BUILTIN_M3U = [
     '#EXTM3U',
     '#EXTINF:-1 channel-number="1" channel-number="" tvg-id="AlJazeera.qa@English" tvg-logo="http://pluspng.com/img-png/al-jazeera-png-al-jazeera-logo-1431.png" group-title="World News",Aljazeera English',
     'https://live-hls-web-aje-gcp.thehlive.com/AJE/index.m3u8',
@@ -698,34 +568,30 @@
     'https://samsung-republictv.amagi.tv/ts-ap-s1-n1/playlist/samsungin-republictv-samsungindia/playlist.m3u8'
   ].join('\n');
 
-  /* ============ State ============ */
   var state = {
-    channels: [],      // effective list being browsed/skipped: the source list, or favorites in Favorites view
-    allChannels: [],   // the loaded source playlist {name, url, logo, group}
-    index: -1,         // index into channels (unfiltered order)
-    now: null,         // channel object currently loaded in the player
-    view: 'all',       // 'all' | 'favs'
-    favorites: [],     // bookmarked channels — independent of the loaded source list
-    savedLists: [],    // [{name, channels:[...]}] saved from favorites
+    channels: [],
+    allChannels: [],
+    index: -1,
+    now: null,
+    view: 'all',
+    favorites: [],
+    savedLists: [],
     source: 'World News',
-    sourceDesc: { kind: 'builtin', label: 'World News', url: 'http://bit.ly/sj-wnews' },
+    sourceDesc: { kind: 'builtin', label: 'World News', url: '' },
     hls: null,
     userPaused: false,
     skipTimer: null,
-    skipGuard: {},     // url -> timestamp of last failure, prevents skip loops
-    switchAt: 0,       // when the current channel switch started (startup grace / watchdog)
-    playedThisSwitch: false, // current channel has actually reached 'playing'
-    playingSince: 0,   // when the current continuous run of playback began (audio-interruption guard)
-    deadDeferred: false,     // a fatal error is waiting out the startup grace window
-    nativeTried: false,      // this switch already used its native-HLS fallback retry
-    hlsNetFails: 0,          // consecutive fatal hls.js network errors this switch
+    skipGuard: {},
+    switchAt: 0,
+    playedThisSwitch: false,
+    playingSince: 0,
+    deadDeferred: false,
+    nativeTried: false,
+    hlsNetFails: 0,
     watchdogTimer: null,
     interacted: false
   };
 
-  /* ============ Persistence — the chosen list, favorites and saved lists
-     live in this browser only, so the player reopens exactly where it left
-     off (world list stays world list; never silently back to starter). ============ */
   var STORE_KEY = 'sjtv-state-v1';
   var storeOK = true;
   function saveState(){
@@ -742,8 +608,7 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(data));
     } catch(e){
-      // Quota: keep favorites/saved lists and a source pointer (refetchable
-      // sources restore by URL), drop the cached channel array.
+
       try {
         data.channels = null;
         localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -766,7 +631,6 @@
     return '<svg viewBox="0 0 24 24" fill="' + (filled ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.4l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>';
   }
 
-  /* ============ DOM ============ */
   function $(id){ return document.getElementById(id); }
   var video = $('video'), stage = $('stage'), spinner = $('spinner'), stageMsg = $('stageMsg');
   var chanList = $('chanList'), searchInput = $('searchInput'), groupSelect = $('groupSelect');
@@ -800,33 +664,13 @@
     return html;
   }
 
-  /* ============ Stream URL fix — Bloomberg bare host ============
-     bloomberg.com (no www) answers media-manifest requests with a 301
-     redirect to www.bloomberg.com, and that redirect response carries
-     no Access-Control-Allow-Origin header — so hls.js / fetch is
-     blocked by CORS on the redirect hop and the channel never loads.
-     The www host serves the same manifests directly with ACAO: *.
-     Rewrite rule, applied to every stream URL however the playlist was
-     loaded (built-in, URL, file, paste, refresh, saved lists): host
-     exactly bloomberg.com + path starting /media-manifest/ → host
-     www.bloomberg.com, preserving the rest of the path/query exactly.
-     No other host is touched.
-     Second rule (exact-URL, same treatment as the Bloomberg stored-state
-     migration below): the old ABC News Live Disney URL is HEVC-only and
-     undecodable in a web player — any list still carrying it (the
-     Drive original behind the built-in list, a stored favorite / saved list / cached playlist)
-     is pointed at the Pluto AVC feed instead. Exact match only. */
   function fixStreamUrl(url){
     if (typeof url !== 'string') return url;
     if (url === ABC_LIVE_OLD_URL) return ABC_LIVE_URL;
     var m = url.match(/^(https?:\/\/)bloomberg\.com(\/media-manifest\/.*)$/i);
     return m ? m[1] + 'www.bloomberg.com' + m[2] : url;
   }
-  /* Stored-state migration: a favorite / saved list / cached playlist
-     from before the switch can still hold the old Bloomberg URL
-     (bare-host EU feed). Map that exact URL to the new www US feed so
-     a Bloomberg favorite is neither lost nor duplicated; every other
-     stored URL just gets the generic host rewrite above. */
+
   var BLOOMBERG_OLD_EU = /^https?:\/\/(?:www\.)?bloomberg\.com\/media-manifest\/streams\/eu\.m3u8(?:[?#].*)?$/i;
   var BLOOMBERG_US_URL = 'https://www.bloomberg.com/media-manifest/streams/us.m3u8';
   function migrateChannelUrl(url){
@@ -839,7 +683,6 @@
     list.forEach(function(c){ if (c && c.url) c.url = migrateChannelUrl(c.url); });
   }
 
-  /* ============ M3U parsing ============ */
   function parseM3U(text){
     var lines = String(text || '').split(/\r?\n/);
     var out = [], pending = null;
@@ -851,12 +694,7 @@
       var line = lines[i].trim();
       if (!line) continue;
       if (line.indexOf('#EXTINF') === 0){
-        // Robust against broken attribute quoting (the built-in list has
-        // #EXTINF lines with an unclosed tvg-id quote and a tvg-logo URL
-        // containing a space): the name is the text after the LAST comma
-        // on the line, the stream URL is simply the next URL line, and
-        // attributes are only used when they extract cleanly — a channel
-        // is never dropped because its attributes are malformed.
+
         var comma = line.lastIndexOf(',');
         var grp = attr(line, 'group-title');
         if (!grp || grp.length > 60 || grp.indexOf('=') >= 0) grp = 'News';
@@ -866,9 +704,9 @@
           group: grp
         };
       } else if (line.charAt(0) === '#'){
-        continue; // EXTVLCOPT etc. — browsers can't apply custom headers; ignored
+        continue;
       } else if (/^https?:\/\//i.test(line)){
-        var url = fixStreamUrl(line.split('#')[0].trim()); // strip fragment tokens some lists append; fix known-broken hosts (Bloomberg bare host)
+        var url = fixStreamUrl(line.split('#')[0].trim());
         var lower = url.toLowerCase();
         var isHls = lower.indexOf('.m3u8') >= 0 || lower.indexOf('.m3u') >= 0;
         var isDash = lower.indexOf('.mpd') >= 0;
@@ -885,16 +723,12 @@
         }
       }
     }
-    // Dedupe by URL
+
     var seen = {}, deduped = [];
     out.forEach(function(c){ if (!seen[c.url]){ seen[c.url] = 1; deduped.push(c); } });
     return deduped;
   }
 
-  /* Header pill next to the title: same behavior for whichever list is
-     selected — a playlist shows "Name · N channels" (e.g. "SJTV · 31
-     channels"); when the Favorites view is selected it shows the
-     favorites the same way ("★ Favorites · N channels"). */
   function syncSrcPill(){
     if (state.view === 'favs'){
       var fn = state.favorites ? state.favorites.length : 0;
@@ -914,9 +748,7 @@
       toast('No playable HLS (.m3u8) channels found in that playlist.');
       return;
     }
-    // Channels can arrive without parsing (e.g. reopening a saved list):
-    // apply the stream URL fix here too so playback never sees the old
-    // bare-host Bloomberg URL from any route.
+
     channels.forEach(function(c){ if (c && c.url) c.url = fixStreamUrl(c.url); });
     state.allChannels = channels;
     state.channels = channels;
@@ -937,7 +769,6 @@
     if (autoplayFirst) playChannel(0);
   }
 
-  /* ============ Favorites ============ */
   function isFav(url){
     return state.favorites.some(function(f){ return f.url === url; });
   }
@@ -962,25 +793,17 @@
     saveState();
   }
   function syncFavUI(){
-    // Keep the header pill's favorites count live while the Favorites
-    // view is selected (star / unstar changes it immediately).
+
     syncSrcPill();
     $('tabFavs').textContent = '★ Favorites (' + state.favorites.length + ')';
   }
 
-  /* ============ Views: All channels / Favorites ============ */
   function syncViewTabs(){
     $('tabAll').classList.toggle('active', state.view === 'all');
     $('tabFavs').classList.toggle('active', state.view === 'favs');
   }
   function setView(v){
-    // Empty favorites: entering the Favorites view is a no-op. With
-    // no favorite channels there is nothing to show or play, and
-    // swapping state.channels to the empty favorites array would kill
-    // Prev/Next (right/left) stepping — so the view, the active list
-    // and the current index all stay exactly as they were, and
-    // stepping keeps running over the previously active list (the
-    // last saved/source list the user was on).
+
     if (v === 'favs' && !state.favorites.length) return;
     state.view = v;
     state.channels = v === 'favs' ? state.favorites : state.allChannels;
@@ -996,19 +819,7 @@
   $('tabFavs').addEventListener('click', function(){ setView('favs'); });
   $('btnViewFavs').addEventListener('click', function(){
     setView('favs');
-    // Clicking Favorites behaves like clicking a saved list (SJTV
-    // or India): it loads and plays WITHOUT opening the channel
-    // dropdown;
-    // the panel opens only from the selector bar. So this handler
-    // does exactly what a saved-list click does: switch the view
-    // (header pill shows "★ Favorites · N channels") and play —
-    // the panel stays closed, and browsing the favorites channels
-    // afterwards goes through the selector bar, like any list.
-    // The first favorite plays through the same playChannel path
-    // as a row tap, so playback, the media session and the header
-    // pill behave identically. Empty favorites: setView is a no-op
-    // (see setView), so the click has no effect at all — the previous
-    // list stays active and Prev/Next keeps stepping through it.
+
     if (state.favorites.length) playChannel(0);
   });
 
@@ -1035,20 +846,8 @@
     return res;
   }
 
-  /* ============ Channel dropdown panel ============
-     The channel list is hidden by default; the selector bar under the
-     player is the only way in. The panel opens ONLY from the selector
-     bar — never from a channel change or a list switch: car / media
-     keys, auto-skip, session restore, saved-list clicks and the
-     "View favorites" link all change what plays without opening it,
-     scrolling the page, or moving focus. */
   function chanPanelOpen(){ return !$('chanPanel').hidden; }
-  /* Cap the open dropdown to the space left in the viewport below
-     the selector bar (10px breathing room, never under 220px, never
-     over the 600px CSS cap), so the WHOLE panel — tabs, search and
-     the internally-scrolling list — is on screen at once in both the
-     All channels and Favorites views. Recomputed on open and on
-     resize / rotation while open. */
+
   function fitChanPanel(){
     if (!chanPanelOpen()) return;
     var dd = $('chanPanel').parentElement;
@@ -1062,33 +861,20 @@
     $('chanSelect').setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open){ fitChanPanel(); scrollListToPlaying(); }
     else {
-      /* Closing must not leave keyboard focus parked inside the now-
-         hidden panel: a search field or the group <select> holding
-         focus swallows every later ArrowLeft / ArrowRight — and on
-         the Tesla wheel a tilt IS an arrow key (see onRemoteKey), so
-         a wheel skip pressed after browsing the list died in the
-         hidden field and the channel never changed. Release the
-         field and park focus on the stage, the safe non-editing
-         element the wheel's keys are aimed at. */
+
       try { searchInput.blur(); } catch(e){}
       try { groupSelect.blur(); } catch(e){}
       focusStage();
     }
   }
-  /* Park keyboard focus on the player stage (a non-editing element).
-     Car browsers deliver the steering-wheel tilt to the page as
-     arrow-key events aimed at whatever holds focus; with focus on
-     the stage those keys reach the remote handler instead of being
-     consumed by a form control. preventScroll keeps the page exactly
-     where it is — focusing must never move the view. */
+
   function focusStage(){
     try { stage.focus({ preventScroll: true }); }
     catch(e){ try { stage.focus(); } catch(e2){} }
   }
   window.addEventListener('resize', fitChanPanel);
   function scrollListToPlaying(){
-    // Internal scroll of the list container only (never the page):
-    // position the highlighted playing row at the top of the panel.
+
     var cur = chanList.querySelector('.chan.playing');
     if (!cur) return;
     var lr = chanList.getBoundingClientRect(), cr = cur.getBoundingClientRect();
@@ -1116,11 +902,7 @@
         '<button type="button" class="star' + (fav ? ' on' : '') + '" data-star="' + i + '" aria-label="' + (fav ? 'Remove ' : 'Bookmark ') + esc(c.name) + (fav ? ' from favorites' : ' as a favorite') + '" title="' + (fav ? 'Remove from favorites' : 'Bookmark as favorite') + '">' + starSVG(fav) + '</button>' +
       '</div>';
     }).join('');
-    /* No scrollIntoView here on purpose: renderList() runs on every
-       channel change (row tap, PREV / NEXT, media / car keys, auto-skip,
-       restore), and scrolling the list to the playing row yanked the
-       page away from the player. The playing row is highlighted in
-       place; the list stays exactly where the user left it. */
+
   }
   chanList.addEventListener('click', function(e){
     var star = e.target.closest('.star');
@@ -1139,96 +921,24 @@
   searchInput.addEventListener('input', renderList);
   groupSelect.addEventListener('change', renderList);
 
-  /* ============ Playback ============
-     ONE play path for every arrival — channel-row tap, PREV / NEXT,
-     media keys, swipe, auto-skip, favorites. Starting
-     playback used to be a single async shot: play() was called once
-     from MANIFEST_PARSED (hls.js) or a one-time loadedmetadata listener
-     (native Safari), and its promise rejection was swallowed. A switch
-     arriving without a fresh tap gesture (media keys), or on a
-     slow-starting stream (Bloomberg's multi-variant master), lost that
-     one shot to NotAllowedError / AbortError and sat paused forever —
-     while a manual row tap, with its live gesture, worked.
-     Now play() is attempted immediately and synchronously inside
-     playChannel (before the announcement or any other step), again on
-     loadedmetadata / canplay / MANIFEST_PARSED / LEVEL_LOADED, and on a
-     short timed retry ladder — until the video is actually playing.
-     Every rejection is logged by name. Retries stop when the user
-     switches again or pauses deliberately. If the browser still blocks
-     autoplay after the retries, the big tap-to-play overlay appears
-     instead of a silent paused frame. */
-  /* Frozen settings (the on-screen controls for these were removed;
-     the values stay exactly as they were last set):
-     auto-skip dead channels is ON, spoken channel announcements are OFF.
-     Volume is left to the device / system controls. */
   var AUTO_SKIP_ENABLED = true;
   var ANNOUNCE_VOICE_ENABLED = false;
-  var STARTUP_GRACE_MS = 8000;     // fatal errors this early (before any frame) wait out the window instead of skipping
-  var STARTUP_WATCHDOG_MS = 12000; // no playback and no error by now → treat the stream as dead
-  var playSeq = 0;                 // bumped on every switch and deliberate pause; stale retries check it
-  var playPending = false;         // a play() promise for the current switch hasn't settled yet
-  var playPendingAt = 0;           // when the pending play() was issued — WebKit can leave one
-                                   // unsettled indefinitely on a slow native load, so a pending
-                                   // promise only suppresses retries while it is fresh (see
-                                   // attemptPlay); an old one must not gate later attempts
-  var playAttemptSeq = 0;          // token per play() issue: a superseded attempt's late
-                                   // settle (esp. an AbortError from a load() re-kick) must
-                                   // not clear a newer attempt's flag or run rejection logic
+  var STARTUP_GRACE_MS = 8000;
+  var STARTUP_WATCHDOG_MS = 12000;
+  var playSeq = 0;
+  var playPending = false;
+  var playPendingAt = 0;
+
+  var playAttemptSeq = 0;
+
   var playTimers = [];
 
-  /* ============ Boot autoplay state (fresh page load only) ============
-     When the page opens, SJTV starts the video on its own instead of
-     sitting paused behind a "press play" frame:
-       phase 2 — the boot start itself: muted autoplay, the one start
-         autoplay policy permits on a cold launch (a with-sound
-         attempt — the old phase 1 — is refused without a gesture;
-         its rejection path is still handled, as a fallback);
-       phase 3 — playing muted: the 🔊 Tap-for-sound pill is up.
-     Any later manual action (channel switch, explicit play, pill tap,
-     unmute by any route) ends the boot state — see endBoot(). Boot runs
-     ONLY from the init paths, never on a channel switch. */
   var boot = { phase: 0, muted: false, launching: false };
 
-  /* Remote-control starts (steering wheel / Bluetooth / lock-screen
-     media actions, media keys) keep the launch mute. A remote press
-     is not a page gesture on car browsers (Tesla's included): when
-     the launch is playing muted and a remote resume or channel
-     switch force-unmuted before play() — the endBoot(true) the
-     on-screen paths use — the browser refused the with-sound start
-     and nothing played at all, which is why on the Tesla wheel only
-     Pause (which needs no permission) worked while resume and
-     left/right did nothing. A muted remote start is always allowed,
-     so remote entry points set this flag (or pass it to tryPlay)
-     and the start stays muted; the Tap-for-sound pill remains up,
-     and a later tap on the screen unmutes exactly as before. Once
-     the user has tapped for sound (video no longer boot-muted),
-     remote starts run with sound exactly as they always did. */
   var remoteKeepMuted = false;
 
   function playLog(msg){ try { console.log('[SJTV] ' + msg); } catch(e){} }
 
-  /* ============ CSP-block detection ============
-     On the public web (share) link, the page is served with a
-     Content-Security-Policy HEADER whose connect-src whitelist
-     refuses playlist fetches before they reach the network —
-     Drive, the short link and the proxy hosts alike (Safari's
-     console: "Refused to connect to … because it does not appear
-     in the connect-src directive"). That policy is imposed by the
-     host serving the page, not by the page: this file ships no CSP
-     of its own, and a <meta> CSP could only narrow a header policy,
-     never widen it. The securitypolicyviolation event is the one
-     reliable in-page signal that this is happening. fetchPlaylist
-     still attempts the FULL route chain — direct routes and the
-     whole proxy chain, retry pass included — on every surface,
-     blocked or not: the chain is the only way a playlist URL can
-     load, and the flag's job is only to name the real cause when
-     every attempt was refused, instead of blaming the link or the
-     network. On surfaces without the block (the Muse app) the
-     event never fires and loading behaves exactly as before.
-     Playback is unaffected either way: the <video> element is
-     governed by media-src, not connect-src, which is why channels
-     still play on the web link even when playlist downloads are
-     refused there. */
   var cspConnectBlocked = false;
   document.addEventListener('securitypolicyviolation', function(e){
     var d = e.violatedDirective || e.effectiveDirective || '';
@@ -1249,31 +959,21 @@
   function tapPlayVisible(){ return $('tapPlay').classList.contains('on'); }
   function showSoundPill(){ $('soundPill').classList.add('on'); }
   function hideSoundPill(){ $('soundPill').classList.remove('on'); }
-  /* End the boot-autoplay state. With unmute=true, a video that the
-     boot fallback muted is unmuted again — a manual channel start or
-     play action must never inherit the boot's muted state. */
+
   function endBoot(unmute){
     if (unmute && boot.muted) video.muted = false;
     boot.phase = 0;
     boot.muted = false;
     hideSoundPill();
   }
-  /* Boot phase 1 (with sound) was refused: retry MUTED. On the native
-     HLS path (iPhone Safari) the muted attempt is only valid when
-     muted is set before the source starts, so the same stream is
-     re-attached with muted already on — same channel, no switch. The
-     hls.js path just plays again: the instance is already attached. */
+
   function startMutedBootFallback(){
     if (boot.phase !== 1) return;
     boot.phase = 2;
     boot.muted = true;
     video.muted = true;
     playLog('boot autoplay: with-sound play blocked — falling back to muted autoplay');
-    // The re-attach below restarts the load from zero, so the startup
-    // clock restarts with it (the same reset fallbackToNative does):
-    // otherwise the original switch's grace window / watchdog, still
-    // measured from the refused with-sound attempt, can declare the
-    // muted stream dead while it is still loading.
+
     state.switchAt = Date.now();
     state.playedThisSwitch = false;
     state.playingSince = 0;
@@ -1292,32 +992,14 @@
     schedulePlayRetries(playSeq);
   }
 
-  var lastPlayAt = 0;              // timestamp of the latest play() attempt (diagnostic logging context)
+  var lastPlayAt = 0;
   function attemptPlay(seq, why){
     if (seq !== playSeq || state.userPaused || !state.now) return;
     if (isPlaying()) return;
-    // A still-pending play() used to suppress EVERY later attempt until
-    // it settled — and on WebKit (the native HLS path: iPhone / iPad /
-    // Mac Safari, the Muse app's webview) a play() issued before the
-    // stream's first data can stay pending indefinitely without ever
-    // starting playback: the promise neither resolves nor rejects, so
-    // the loadedmetadata / canplay retries and the whole retry ladder
-    // were swallowed behind it and the launch sat on a paused frame
-    // until a tap (whose handler force-resets the flag) issued a fresh
-    // play(). Chromium settles such promises quickly, which is why
-    // the muted launch start worked there but not on iOS. A pending
-    // attempt now only suppresses retries while it is fresh (1.2s);
-    // past that, a new play() is issued alongside it — overlapping
-    // play() calls are legal, and the token below keeps the older
-    // attempt's late settle from disturbing the newer one.
+
     if (playPending && Date.now() - playPendingAt < 1200) return;
     lastPlayAt = Date.now();
-    // A muted start has no audio to protect, and arming the bare
-    // AudioContext during a muted cold launch is itself an iOS
-    // startup race: the context taking / releasing the shared audio
-    // session can flip to 'interrupted' and pause the video that
-    // just started. Only arm the interruption watchdog for
-    // with-sound playback.
+
     if (!video.muted) armAudioInterruptions();
     playPending = true;
     playPendingAt = Date.now();
@@ -1331,11 +1013,11 @@
     }
     if (p && typeof p.then === 'function'){
       p.then(function(){
-        if (token !== playAttemptSeq) return; // superseded — a newer attempt owns the flag
+        if (token !== playAttemptSeq) return;
         playPending = false; playPendingAt = 0;
         if (seq === playSeq && !video.paused) hideTapPlay();
       }, function(err){
-        if (token !== playAttemptSeq) return; // superseded — its rejection is not news
+        if (token !== playAttemptSeq) return;
         playPending = false; playPendingAt = 0;
         onPlayRejected(seq, err, why);
       });
@@ -1348,27 +1030,21 @@
     playLog('play() rejected via ' + why + ': ' + name + (err && err.message ? ' — ' + err.message : ''));
     if (seq !== playSeq || state.userPaused) return;
     if (name === 'NotAllowedError' && boot.phase === 1){
-      // Boot autoplay, with-sound attempt refused by autoplay policy:
-      // climb the ladder to muted autoplay instead of the overlay.
+
       startMutedBootFallback();
       return;
     }
     if (name === 'NotAllowedError' && boot.phase === 2){
-      // Even muted autoplay was refused — the boot ladder is over;
-      // the existing tap-to-play overlay path below takes it from here.
+
       boot.phase = 0;
     }
     if (name === 'NotAllowedError'){
-      // Autoplay policy. The retry ladder and load events get a brief
-      // chance first (a later attempt can still land while the stream
-      // loads); if the video is still paused shortly after, surface the
-      // one-tap overlay instead of sitting on a silent paused frame.
+
       playTimers.push(setTimeout(function(){
         if (seq === playSeq && !state.userPaused && video.paused && state.now) showTapPlay();
       }, 700));
     }
-    // AbortError: a source change / load() interrupted this attempt —
-    // expected mid-switch; the retry ladder and load events fire again.
+
   }
   function schedulePlayRetries(seq){
     [250, 800, 1800, 3500].forEach(function(ms){
@@ -1380,20 +1056,6 @@
     if (state.hls){ try { state.hls.destroy(); } catch(e){} state.hls = null; }
   }
 
-  /* ============ Closed captions — OFF by default ============
-     Neither engine should show captions/subtitles unless they are
-     turned on, and this player has no captions toggle of its own:
-     any track that arrives "showing" got that way from the stream
-     or from the browser honouring a system caption preference, not
-     from a choice made in this page. So every caption/subtitle
-     track is forced to 'disabled' and, on the hls.js path, no
-     subtitle track is selected and subtitle display is off. This
-     runs on every channel switch, whenever a new text track is
-     added, whenever a track's mode changes (a browser can flip a
-     track to 'showing' after load), and on the load/play events —
-     tracks arrive asynchronously, so a one-time call at switch
-     time alone would miss late tracks. Data/metadata tracks are
-     left alone except when one is somehow showing. */
   function disableCaptions(){
     try {
       var tracks = video.textTracks;
@@ -1417,7 +1079,7 @@
         } catch(e){}
       }
     } catch(e){}
-    // Safari's legacy flag for embedded (CEA) closed captions.
+
     try { if ('webkitClosedCaptionsVisible' in video) video.webkitClosedCaptionsVisible = false; } catch(e){}
   }
   try {
@@ -1435,34 +1097,32 @@
   video.addEventListener('canplay', disableCaptions);
   video.addEventListener('playing', disableCaptions);
 
-  /* ============ CORS unblocker — built into the player ============
-     A browser extension that disables CORS only exists on desktop
-     Chrome / Firefox; it cannot be bundled into a page and does
-     nothing in Safari or the Muse app's webview. The equivalent
-     that works on every surface is a proxy chain inside the player:
-     a public CORS proxy fetches the URL server-side and returns it
-     with Access-Control-Allow-Origin headers the browser accepts.
-     corsProxyRoutes() is the ONE ordered list both halves use:
-       · playlist-text fetches (fetchPlaylist below) — the proxies
-         here return the raw response body, JSON wrapper excluded;
-       · stream requests (SjtvProxyLoader) — every hls.js request
-         (master/variant manifests, segments, keys) tries DIRECT
-         first, so channels that already play are untouched; only
-         when the direct request dies (a CORS block surfaces as a
-         network error with no status) does the loader walk this
-         chain for that request. The successful response is handed
-         to hls.js with its url rewritten back to the REAL stream
-         URL, so relative segment paths inside a proxied manifest
-         still resolve against the origin, and each of those
-         requests then runs the same direct-then-proxy walk.
-     Chain order, refreshed 2026-10-24: Corsfix and cors.eu.org lead
-     (both documented, key-free, raw passthrough); AllOrigins,
-     codetabs and cors.lol follow as deeper fallbacks — each of them
-     is intermittently rate-limited or down (AllOrigins 500/522,
-     codetabs 522, cors.lol 429 in recent checks), which is exactly
-     why no single one is trusted alone. corsproxy.io and
-     proxy.cors.sh are NOT in the chain: both now refuse anonymous
-     requests without an API key (401). */
+  var proxyConsentWaiters = [];
+  var streamProxyConsent = null;
+  function settleProxyConsent(ok){
+    $('proxyModal').classList.remove('on');
+    var w = proxyConsentWaiters;
+    proxyConsentWaiters = [];
+    w.forEach(function(cb){ try { cb(ok); } catch(e){} });
+  }
+  function askProxyConsent(text, url, cb){
+    proxyConsentWaiters.push(cb);
+    if (proxyConsentWaiters.length > 1) return;
+    $('proxyText').textContent = text;
+    $('proxyUrl').textContent = url || '';
+    $('proxyModal').classList.add('on');
+  }
+  function withStreamProxyConsent(url, cb){
+    if (streamProxyConsent !== null){ cb(streamProxyConsent); return; }
+    askProxyConsent('A channel stream could not be loaded directly by the browser. SJTV can try loading it through a public CORS proxy instead.', url, function(ok){
+      streamProxyConsent = ok;
+      cb(ok);
+    });
+  }
+  $('btnProxyOk').addEventListener('click', function(){ settleProxyConsent(true); });
+  $('btnProxyCancel').addEventListener('click', function(){ settleProxyConsent(false); });
+  $('proxyModal').addEventListener('click', function(e){ if (e.target === this) settleProxyConsent(false); });
+
   function corsProxyRoutes(url){
     return [
       { name: 'Corsfix', url: 'https://proxy.corsfix.com/?' + url },
@@ -1473,41 +1133,37 @@
     ];
   }
 
-  /* hls.js loader with the proxy walk built in. Each load() runs a
-     stock loader against the direct URL first, and on error/timeout
-     runs one against each proxy route in turn, succeeding with
-     whichever route answers. Only a failure on EVERY route is
-     reported up to hls.js, where the existing error /
-     native-fallback / auto-skip rules take over unchanged.
-     ROOT CAUSE of the "public lists load but nothing plays" failure
-     (fixed 2026-10-24): hls.js 1.5's stock XhrLoader is ONE-SHOT —
-     its load() throws "Loader can only be used once." when
-     stats.loading.start is already set. The first version of this
-     walk re-called the base load() on the SAME instance for every
-     route, so the first retry threw inside the XHR event handler:
-     the proxy walk never ran, and hls.js never received an error
-     callback either — the request simply hung until the startup
-     watchdog declared the channel dead and auto-skip cascaded
-     through the whole list. Every CORS-blocked manifest, level,
-     segment or key on the hls.js path (desktop / Android browsers)
-     failed exactly that way. The walk therefore drives a FRESH
-     stock loader instance per route attempt and delegates
-     abort / destroy / stats / header reads to the attempt in
-     flight, which is the contract hls.js actually uses. */
   var SjtvProxyLoader = null;
   if (window.Hls && Hls.DefaultConfig && typeof Hls.DefaultConfig.loader === 'function'){
     var HlsBaseLoader = Hls.DefaultConfig.loader;
     SjtvProxyLoader = function(config){
       HlsBaseLoader.call(this, config);
       var self = this;
-      var inner = null; // stock loader running the current route attempt
+      var inner = null;
       this.load = function(context, cfg, callbacks){
         self.context = context;
         var realUrl = context.url;
-        var routes = [{ name: 'Direct', url: realUrl }].concat(corsProxyRoutes(realUrl));
+        var routes = [{ name: 'Direct', url: realUrl }].concat(corsProxyRoutes(realUrl).map(function(r){
+          return { name: r.name, url: r.url, proxy: true };
+        }));
         var idx = 0;
+        var lastFail = null;
+        function failFinal(){
+          if (lastFail && lastFail.type === 'timeout' && callbacks.onTimeout) callbacks.onTimeout(lastFail.stats, context, lastFail.networkDetails);
+          else if (lastFail) callbacks.onError(lastFail.error, context, lastFail.networkDetails, lastFail.stats);
+          else if (callbacks.onTimeout) callbacks.onTimeout(self.stats, context, undefined);
+        }
         function attempt(){
+          if (self.dead) return;
           var route = routes[idx];
+          if (route.proxy && streamProxyConsent !== true){
+            withStreamProxyConsent(realUrl, function(ok){
+              if (self.dead) return;
+              if (ok) attempt();
+              else failFinal();
+            });
+            return;
+          }
           inner = new HlsBaseLoader(config);
           self.stats = inner.stats;
           var attemptContext = {};
@@ -1515,12 +1171,12 @@
           attemptContext.url = route.url;
           inner.load(attemptContext, cfg, {
             onSuccess: function(response, stats, innerCtx, networkDetails){
-              // Report the REAL url, not the proxy's: hls.js resolves
-              // relative level / segment paths against this value.
+
               if (response) response.url = realUrl;
               callbacks.onSuccess(response, stats, context, networkDetails);
             },
             onError: function(error, innerCtx, networkDetails, stats){
+              lastFail = { type: 'error', error: error, networkDetails: networkDetails, stats: stats };
               idx++;
               if (idx < routes.length){
                 playLog('loader: ' + route.name + ' route failed for ' + realUrl + ' — retrying via ' + routes[idx].name);
@@ -1530,6 +1186,7 @@
               }
             },
             onTimeout: function(stats, innerCtx, networkDetails){
+              lastFail = { type: 'timeout', stats: stats, networkDetails: networkDetails };
               idx++;
               if (idx < routes.length) attempt();
               else if (callbacks.onTimeout) callbacks.onTimeout(stats, context, networkDetails);
@@ -1542,9 +1199,11 @@
         attempt();
       };
       this.abort = function(){
+        self.dead = true;
         if (inner) inner.abort();
       };
       this.destroy = function(){
+        self.dead = true;
         if (inner){ try { inner.destroy(); } catch(e){} inner = null; }
       };
       this.getCacheAge = function(){
@@ -1558,18 +1217,6 @@
     SjtvProxyLoader.prototype.constructor = SjtvProxyLoader;
   }
 
-  /* ============ Native-only streams — ABC News Live via Pluto ============
-     Pluto's stitcher answers with Access-Control-Allow-Origin:
-     http://pluto.tv ONLY, so an XHR-based player (hls.js) is
-     CORS-blocked from reading even the master playlist. Native
-     playback ignores CORS, follows the jmp2.uk 302 redirect to the
-     stitcher, and handles its AES-128 HLS natively on iOS / Safari.
-     Rule: a channel URL on host jmp2.uk, pluto.tv or any pluto.tv
-     subdomain is loaded by setting it as the video source directly —
-     never handed to hls.js. Every other URL keeps the existing loader
-     behavior exactly. If native playback of such a channel errors,
-     the normal video 'error' listener / startup watchdog / auto-skip
-     treat it like any failing channel — no special overlay. */
   function isNativeOnlyUrl(url){
     var m = String(url || '').match(/^https?:\/\/([^\/:?#]+)/i);
     if (!m) return false;
@@ -1577,38 +1224,17 @@
     return host === 'jmp2.uk' || host === 'pluto.tv' || /\.pluto\.tv$/.test(host);
   }
 
-  /* ============ Engine choice: native HLS first on Apple browsers ============
-     playChannel() used to hand every non-Pluto channel to hls.js
-     whenever Hls.isSupported() was true. On current iPhone / iPad /
-     Mac Safari that is true only via ManagedMediaSource, and that
-     hls.js path fails fatally on these streams — every channel
-     errored and auto-skip cascaded through the whole list ("none of
-     the channels play in Safari, they just skip"). The Muse app's
-     webview has no ManagedMediaSource, so the same page fell back to
-     native HLS there and played fine. Safari's own HLS stack is the
-     reliable path on Apple platforms (it is also what the Pluto /
-     ABC rule above already relies on), so on Apple browsers native
-     HLS now wins over hls.js. Chrome / Firefox / Android keep hls.js
-     exactly as before, and fallbackToNative() below is the safety
-     net for any browser where the hls.js path dies anyway. */
   function canPlayNativeHls(){
     try { return !!video.canPlayType('application/vnd.apple.mpegurl'); } catch(e){ return false; }
   }
   function preferNativeHls(){
     if (!canPlayNativeHls()) return false;
     var ua = navigator.userAgent || '';
-    // Chromium browsers on a Mac also carry "Macintosh" in the UA —
-    // they keep the hls.js path. Every iOS browser is WebKit under
-    // the hood, so no iOS brand is excluded.
+
     if (/Macintosh/i.test(ua) && /Chrome|Chromium|Edg|OPR/i.test(ua)) return false;
     return /iPhone|iPad|iPod|Macintosh/i.test(ua);
   }
 
-  /* One retry on the native engine before a channel is declared
-     dead: if hls.js dies on a browser that also has a native HLS
-     stack, reload the SAME channel natively instead of skipping.
-     Runs at most once per switch (state.nativeTried); if the native
-     attempt also fails, the normal dead / auto-skip rules apply. */
   function fallbackToNative(){
     var ch = state.now;
     if (!ch || !state.hls || state.nativeTried || !canPlayNativeHls()) return false;
@@ -1640,17 +1266,10 @@
     var n = state.channels.length;
     i = ((i % n) + n) % n;
     var ch = state.channels[i];
-    // A manual switch never inherits the boot-muted state: the new
-    // channel starts with sound and the Tap-for-sound pill goes away.
-    // The boot launch itself is flagged so it doesn't cancel its own
-    // ladder mid-flight. Remote switches (steering wheel / media
-    // keys) are the one exception: while the launch is still
-    // boot-muted they keep the mute — see remoteKeepMuted above —
-    // because a with-sound start from a remote press is refused on
-    // car browsers and the new channel would never play.
+
     var isBootLaunch = false;
     if (boot.launching){ boot.launching = false; isBootLaunch = true; }
-    else if (remoteKeepMuted && video.muted && boot.muted){ /* remote start: stay muted, boot state (and its pill) untouched */ }
+    else if (remoteKeepMuted && video.muted && boot.muted){   }
     else endBoot(true);
     remoteKeepMuted = false;
     state.index = i;
@@ -1685,15 +1304,7 @@
         manifestLoadingMaxRetry: 2,
         levelLoadingMaxRetry: 3
       };
-      // The built-in CORS unblocker: manifests AND segments load
-      // through SjtvProxyLoader (direct first, proxy chain on a
-      // CORS/network failure). All three loader slots are set:
-      // hls.js loads playlists via pLoader and fragments via
-      // fLoader, but AES-128 key fetches go through the plain
-      // `loader` slot — leaving it stock would strand encrypted
-      // streams whose key host blocks CORS. Apple browsers never
-      // reach this — they took the native path above, where page
-      // CORS does not apply to playback at all.
+
       if (SjtvProxyLoader){
         hlsConfig.loader = SjtvProxyLoader;
         hlsConfig.pLoader = SjtvProxyLoader;
@@ -1701,9 +1312,7 @@
       }
       var hls = new Hls(hlsConfig);
       state.hls = hls;
-      // Captions off by default on the hls.js path too: no subtitle
-      // track selected and subtitle display off, re-asserted whenever
-      // hls.js (re)discovers subtitle tracks for this stream.
+
       try { hls.subtitleDisplay = false; } catch(e){}
       try { hls.subtitleTrack = -1; } catch(e){}
       hls.loadSource(ch.url);
@@ -1715,29 +1324,7 @@
       hls.on(Hls.Events.ERROR, function(evt, data){ onHlsError(data); });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')){
       if (isBootLaunch){
-        // Safari / WebKit LAUNCH attach — declarative, not programmatic.
-        // Every previous launch fix retried the same programmatic
-        // start harder (src property + load() + a synchronous play()
-        // in the same task), and on WebKit's native HLS path that
-        // attempt is the one that stalls: muted launch autoplays on
-        // Chromium (hls.js) and Android but never starts in Safari.
-        // WebKit's own autoplay machinery is built around the
-        // element's autoplay attribute driving resource selection —
-        // the pattern in Apple's examples is a <source> child the
-        // selection algorithm picks up, with muted + playsinline +
-        // preload="auto" already on the element (preload matters on
-        // iOS, which otherwise throttles fetching of a programmatic
-        // source until a tap). So the launch channel is attached as
-        // a <source> child and the browser starts it; the immediate
-        // synchronous play() below is SKIPPED for this attach (see
-        // the attemptPlay call site) and programmatic attempts are
-        // left to the load events (loadedmetadata / canplay already
-        // call attemptPlay) and the existing retry ladders, which
-        // remain as the backstop if the declarative start is refused
-        // outright (Low Power Mode, a "Never Auto-Play" site setting).
-        // A stale src ATTRIBUTE would win over <source> children in
-        // resource selection, so it is removed first; any <source>
-        // children from an earlier boot attach go with it.
+
         while (video.firstChild) video.removeChild(video.firstChild);
         try { video.removeAttribute('src'); } catch(e){}
         try { video.preload = 'auto'; } catch(e){}
@@ -1748,23 +1335,7 @@
         declarativeBootAttach = true;
         playLog('boot: native declarative autoplay attach for ' + ch.name);
         try { video.load(); } catch(e){}
-        // Boot wedge-breaker: if the declarative start has produced
-        // NOTHING after 4s — element still paused with zero data —
-        // the native selection is wedged, and no existing guard would
-        // ever restart it: the 6s stall re-kick below exempts any
-        // element reporting NETWORK_LOADING, which is exactly the
-        // state a wedged iOS load reports forever while delivering
-        // nothing (Chromium never wedges this way — its loads either
-        // progress or error — which is why muted launch worked on
-        // Android / Tesla while Safari sat on a frozen frame through
-        // every previous fix). Restart the SAME channel once, via the
-        // src-property attach the gesture-backed switch path uses,
-        // still muted, and restart the startup clock with it (the
-        // same reset the re-kick performs) so the restarted load gets
-        // a full watchdog window. Stands down the moment anything
-        // plays, errors, the user interacts (their taps own recovery
-        // from there), pauses deliberately, or switches away — and it
-        // is armed only for this boot attach, never for switches.
+
         playTimers.push(setTimeout(function(){
           if (seq !== playSeq || state.userPaused || state.interacted) return;
           if (boot.phase !== 2 || !state.now || state.now !== ch) return;
@@ -1785,15 +1356,10 @@
           attemptPlay(seq, 'boot-wedge-restart');
         }, 4000));
       } else {
-        // Channel switch (a gesture-backed start — this path works):
-        // drop any <source> children left by a boot attach so the
-        // src attribute below is the one resource selection sees.
+
         while (video.firstChild) video.removeChild(video.firstChild);
         video.src = ch.url;
-        // Explicit load(), matching the other two native attach sites
-        // (fallbackToNative, the muted-boot re-attach): on a WKWebView
-        // element left emptied by an earlier teardown, a bare src
-        // assignment can sit unloaded; load() starts the fetch now.
+
         try { video.load(); } catch(e){}
       }
     } else {
@@ -1802,42 +1368,16 @@
       return;
     }
 
-    // First play() attempt: right here, synchronously, while a tap /
-    // key gesture is still live — before the announcement, the list
-    // re-render or anything else can delay it. The promise stays
-    // pending until the stream has data, and the retry ladder plus the
-    // load events keep re-trying until the channel is actually playing.
-    // The ONE exception is the declarative Safari boot attach above:
-    // there the element's own autoplay machinery owns the start, and
-    // a synchronous programmatic play() in the same task as load() is
-    // the attempt WebKit leaves pending — the load events and the
-    // retry ladder (both still armed) are its backstop instead.
     if (!declarativeBootAttach) attemptPlay(seq, 'switch');
     schedulePlayRetries(seq);
-    // Native-path stall re-kick (WKWebView / Safari): the native
-    // resource selection can wedge before metadata — a source is set
-    // and play() was issued, yet seconds later the element still has
-    // readyState 0 with the network IDLE (not loading, no error):
-    // the selection stalled and no event will ever fire to retry.
-    // One load() re-kick restarts the selection, and the load-event
-    // attempts plus a fresh play() then start it — the native
-    // equivalent of the pressure hls.js applies on its own path.
-    // Strictly one-shot per switch and conservative: an actively
-    // loading network (a merely slow stream), an element that
-    // already has data, an errored element and the hls.js path are
-    // all left exactly as they are, and a visible tap-to-play
-    // overlay (autoplay refused outright) is never fought.
+
     playTimers.push(setTimeout(function(){
       if (seq !== playSeq || state.userPaused || state.playedThisSwitch || isPlaying()) return;
       if (state.hls || !video.currentSrc || video.error || tapPlayVisible()) return;
       if (video.readyState !== 0 || video.networkState === 2) return;
       playLog('native load stalled before metadata — re-kicking load() for ' + ch.name);
       playPending = false; playPendingAt = 0;
-      // The re-kick restarts the load from zero, so the startup
-      // clock restarts with it (the same reset fallbackToNative and
-      // the muted-boot re-attach do): otherwise the original
-      // switch's watchdog can declare the re-kicked load dead while
-      // it is still starting.
+
       state.switchAt = Date.now();
       state.deadDeferred = false;
       clearTimeout(state.watchdogTimer);
@@ -1849,10 +1389,7 @@
       try { video.load(); } catch(e){}
       attemptPlay(seq, 'stall-rekick');
     }, 6000));
-    // Startup watchdog: a stream that produces neither playback nor a
-    // fatal error inside the window counts as dead (auto-skip rules
-    // apply) — unless autoplay is blocked, which is the overlay's job,
-    // not a dead stream.
+
     state.watchdogTimer = setTimeout(function(){
       if (seq !== playSeq || state.userPaused || state.playedThisSwitch || isPlaying()) return;
       if (tapPlayVisible()) return;
@@ -1865,48 +1402,20 @@
     saveState();
     announce(ch, i);
     setMediaSession(ch);
-    /* Keep the wheel's keys aimed at the player: every switch (tap,
-       remote, auto-skip) re-parks focus on the stage, so focus can
-       never be left sitting in a control that eats arrow keys. */
+
     focusStage();
-    // If a channel is picked from further down the page, pin the player
-    // straight away so the video comes into view instead of playing unseen.
+
     if (window.requestAnimationFrame) requestAnimationFrame(checkStuck);
   }
 
   function tryPlay(keepMuted){
-    // An explicit play action ends any muted boot state: resuming is a
-    // user gesture, so playback continues WITH sound. Remote resumes
-    // pass keepMuted: while the launch is still boot-muted the resume
-    // stays muted instead (see remoteKeepMuted above) — unmuting
-    // first is what made steering-wheel resume a no-op on Tesla.
+
     if (!(keepMuted && video.muted && boot.muted)) endBoot(true);
-    // A play() promise from an earlier attempt can still be pending
-    // while a slow stream loads, and attemptPlay treats a pending
-    // promise as "already trying" and does nothing — so the user's
-    // first press was swallowed and only the second press played.
-    // resumeRemote() already resets the flag for remote presses; do
-    // the same here so every on-screen press issues its own play().
+
     playPending = false;
-    // Resume actions (play button, media-key play, first tap
-    // anywhere) go through the same play engine as a channel switch.
-    // Restored session with nothing loaded yet: a bare play() would hit
-    // the same empty-element dead end as the on-screen ▶ — route through
-    // togglePlay so the last channel actually gets loaded.
+
     if (!video.currentSrc && state.now){ togglePlay(); return; }
-    // Wedged native load (Safari / WebKit): the launch channel is
-    // attached and this switch has never played, the element still
-    // holds zero data seconds later, and the user is pressing play —
-    // a bare play() on that element goes nowhere (the load is
-    // wedged / suspended; see the tap-to-play handler's nativeNoData
-    // note), which is why the FIRST press on the centre ▶ only
-    // "kept loading" and a later press — on an element iOS had since
-    // idled — was the one that worked. Reload the same channel HERE,
-    // inside the press, so the fresh load's first play() attempt is
-    // gesture-backed. The age guard keeps a healthy fresh load
-    // (< 2.5s old, or any switch that has already played) on the
-    // plain attemptPlay path exactly as before, and the hls.js path
-    // is untouched.
+
     if (!state.hls && video.paused && !video.error && video.readyState === 0 &&
         !state.playedThisSwitch && state.switchAt && (Date.now() - state.switchAt > 2500) &&
         state.now){
@@ -1916,10 +1425,6 @@
     attemptPlay(playSeq, 'resume');
   }
 
-  /* Reload the channel that is supposed to be playing, through the
-     full switch path — used when the element's stream is no longer
-     resumable. Same view-switch handling as togglePlay: the channel
-     may live in the list that isn't on screen. */
   function reloadCurrentChannel(){
     if (!state.now) return false;
     var i = indexOfUrl(state.channels, state.now.url);
@@ -1931,31 +1436,7 @@
     return false;
   }
 
-  /* Remote resume (Control Center / lock screen / car / headset play).
-     A plain tryPlay() is not enough after a remote pause:
-       · the pause handler set state.userPaused, which gates
-         attemptPlay — a remote play is an explicit user action, so
-         the flag is cleared first (same as the on-screen ▶);
-       · while paused, iOS can unload or expire the element's stream
-         (no source, error state, no-source network state) — a bare
-         play() on such an element goes nowhere, so a demonstrably
-         stale element reloads the SAME channel instead;
-       · a LONG pause expires a live stream even when the element
-         still looks healthy: these are live-edge HLS feeds, so the
-         buffered position a short pause resumes from has slid out of
-         the segment window after a minute or so, and a bare play()
-         stalls on media that no longer exists (or errors and the
-         session dies with it — the "paused it, came back later,
-         video was lost" report). A pause older than the threshold
-         therefore reloads the same channel at the live edge, exactly
-         like the stale case; short pauses keep the instant buffered
-         resume they have always had;
-       · if play() was accepted but playback still hasn't resumed
-         shortly after (wedged element, silently dropped attempt),
-         one guarded reload of the same channel recovers it. The
-         guard re-checks channel, pause intent and switch sequence,
-         so it can never fire after a newer switch or a new pause. */
-  var LONG_PAUSE_MS = 45000; // paused longer than this → a live element is treated as expired on resume
+  var LONG_PAUSE_MS = 45000;
   function resumeRemote(){
     state.userPaused = false;
     playPending = false;
@@ -1968,22 +1449,15 @@
       remoteKeepMuted = true;
       if (reloadCurrentChannel()) return;
     }
-    // Belt and braces: tryPlay can route into playChannel (via
-    // togglePlay) when the element has no source — that switch must
-    // keep the launch mute too, not just the direct play() above.
+
     remoteKeepMuted = true;
     tryPlay(true);
-    // play() was issued synchronously above, so the flag has done its
-    // job either way (playChannel consumes it when it routes there);
-    // never leave it set for the next on-screen tap.
+
     remoteKeepMuted = false;
     var seq = playSeq;
     setTimeout(function(){
       if (state.userPaused || seq !== playSeq || state.now !== ch) return;
-      // "Resumed" means actually playing — data flowing, not merely
-      // play() accepted. The old check also stood down whenever the
-      // element reported unpaused, so a resume stalled on an expired
-      // buffer (unpaused, zero new frames) was never recovered.
+
       if (isPlaying()) return;
       playLog('remote play did not resume ' + ch.name + ' — reloading the channel');
       remoteKeepMuted = true;
@@ -1995,10 +1469,7 @@
     if (!data || !data.fatal) return;
     var hls = state.hls;
     if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hls){
-      // One reconnect attempt, as before; a second fatal network
-      // error on the same switch goes through the dead path, which
-      // first retries natively when a native stack exists instead
-      // of looping startLoad() forever.
+
       state.hlsNetFails = (state.hlsNetFails || 0) + 1;
       if (state.hlsNetFails < 2){
         showStageMsg('Stream hiccup — reconnecting…', false);
@@ -2013,28 +1484,22 @@
   }
 
   video.addEventListener('error', function(){
-    // Native (Safari) path errors
+
     if (!state.hls && state.index >= 0 && video.error) onStreamDead('Stream unavailable');
   });
   video.addEventListener('playing', function(){
     spinner.classList.remove('on');
     showStageMsg('', false);
-    // Stamp the start of this continuous run of playback — the
-    // audio-interruption watchdog only believes an 'interrupted'
-    // flip once playback has been established for a few seconds
-    // (see onAudioInterruption). Re-stamped after a stall recovery,
-    // which just extends the protected startup window slightly.
+
     state.playingSince = Date.now();
-    state.pausedAt = 0; // playing again — any earlier pause stamp is spent
+    state.pausedAt = 0;
     clearTimeout(state.skipTimer);
     clearTimeout(state.watchdogTimer);
     clearPlayTimers();
     hideTapPlay();
     state.playedThisSwitch = true;
     state.hlsNetFails = 0;
-    // Boot ladder resolution: playing WITH sound → ladder done, no
-    // pill. Playing muted → the picture is moving on its own; the
-    // Tap-for-sound pill stays up until the user unmutes.
+
     if (boot.phase === 1 || boot.phase === 2){
       if (video.muted){ boot.phase = 3; showSoundPill(); }
       else { boot.phase = 0; hideSoundPill(); }
@@ -2042,53 +1507,21 @@
     updatePlayIcon();
     scheduleControlsHide();
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-    // Re-publish the whole media session now that this channel is
-    // ACTUALLY playing. On a playlist switch (above all a Saved Lists
-    // switch, where the fetch makes the gap seconds long) the session
-    // was last published from playChannel — mid-teardown, while the
-    // element was emptied by the source swap and had no playable data.
-    // iOS binds Play/Pause to the element's Now Playing registration;
-    // published only in that emptied window, the new list's session
-    // keeps the handler-driven ⏮/⏭ buttons but loses Play/Pause in
-    // Control Center / on the lock screen. Re-publishing here, at
-    // first real playback of the new source, re-binds it exactly as
-    // on first load. (setMediaSession is hoisted; state.now is the
-    // channel that just started.)
+
     if (state.now) setMediaSession(state.now);
   });
   video.addEventListener('volumechange', function(){
-    // Unmuted by any route (pill tap, first tap anywhere, system UI)
-    // while the muted boot stream is playing: the pill has done its
-    // job — the stream keeps playing, now with sound.
+
     if (boot.phase === 3 && !video.muted){
       boot.phase = 0;
       boot.muted = false;
       hideSoundPill();
     }
   });
-  // Load-progress events are extra play() attempts for the CURRENT
-  // switch, on both the hls.js and native paths: a slow first frame
-  // (Bloomberg) gets play() retried the moment data actually lands,
-  // instead of relying on the single early attempt.
+
   video.addEventListener('loadedmetadata', function(){ attemptPlay(playSeq, 'loadedmetadata'); });
   video.addEventListener('canplay', function(){ attemptPlay(playSeq, 'canplay'); });
-  /* The play/pause icon and the Loading… label follow the element's
-     REAL state, not just the 'playing' milestone — on slow-starting
-     streams the two visibly disagreed with the picture:
-       · updatePlayIcon ran only on 'playing' / 'pause', so between
-         play() taking effect and the 'playing' event (the whole
-         startup / stall window) the center button kept the stale ▶
-         it was initialised with, then flipped to ❚❚ late — and a
-         stall cycle flipped it back and forth over a picture that
-         was already up. The 'play' event fires the moment paused
-         flips to false, so the icon updates there too.
-       · the "Loading <channel>…" message (and the spinner) cleared
-         only on 'playing', so a stream whose first frames were
-         already on screen kept the Loading… label over the picture
-         for seconds. First frame data with play requested ('canplay'
-         while not paused) is the honest point to clear it; a later
-         stall brings the SPINNER back via 'waiting' without
-         resurrecting the Loading… text over the picture. */
+
   video.addEventListener('play', updatePlayIcon);
   video.addEventListener('canplay', function(){
     if (!video.paused){ showStageMsg('', false); spinner.classList.remove('on'); }
@@ -2098,51 +1531,15 @@
     updatePlayIcon();
     showControls();
     state.pausedAt = Date.now();
-    // Full session hold, not just the playback state: if the browser
-    // has already dropped the metadata (it can, when it idles the
-    // element), a bare playbackState publish leaves SJTV unregistered
-    // and Control Center falls back to the previous app.
+
     holdMediaSession();
   });
   video.addEventListener('emptied', function(){
-    // iOS unloads the media element after a long pause (screen locked,
-    // app backgrounded): the element loses its source AND WebKit drops
-    // the page's Now Playing registration with it — which is how a
-    // long-paused SJTV vanished from Control Center and Play there
-    // started the previously played app (Music / Podcasts) instead.
-    // Re-publish the session for the channel that is supposed to be
-    // loaded, so SJTV stays the paused Now Playing source; the next
-    // remote Play then reaches resumeRemote(), whose stale check
-    // (!video.currentSrc) reloads this same channel. This also fires
-    // on ordinary channel switches — re-publishing the new channel's
-    // session mid-load is what setMediaSession() does there anyway.
+
     holdMediaSession();
   });
   video.addEventListener('ended', function(){ nextChannel(); });
 
-  /* ============ Audio interruption — an incoming call pauses playback ============
-     Bug: with a channel playing, an incoming phone call did not pause
-     the player — the stream kept fighting the call for the audio
-     output. The signal a web page gets for that is the Web Audio
-     interruption event: when the system takes the audio session (a
-     call, Siri, another app's audio), a running AudioContext's state
-     flips to 'interrupted' and it fires statechange. So one bare
-     context — no nodes, no sound of its own — is created / resumed
-     inside attemptPlay(), which every play gesture (on-screen ▶,
-     tap-to-play, channel tap, media-key play) flows through; a
-     context may only start from a user gesture, so arming it anywhere
-     else would leave it suspended and deaf. When the interruption
-     begins, the video is paused with the same deliberate-pause
-     semantics as the media-key pause: userPaused gates every pending
-     play retry so nothing restarts the stream behind the user's back,
-     and video.pause() fires the 'pause' listener above, which keeps
-     the play/pause icon and the media session playbackState in sync.
-     There is deliberately NO resume when the interruption ends (the
-     context's state settles back to 'running' / 'suspended' on its
-     own): the user taps play to come back, exactly like a manual
-     pause. Ordinary backgrounding is untouched — this listens for the
-     audio interruption only, never visibilitychange, so background
-     listening keeps playing. */
   var audioCtx = null;
   function armAudioInterruptions(){
     try {
@@ -2153,9 +1550,7 @@
         audioCtx.addEventListener('statechange', onAudioInterruption);
       }
       if (audioCtx.state === 'suspended'){
-        // Outside a gesture this stays suspended and the promise may
-        // reject — expected on the boot-autoplay attempts; the next
-        // real play gesture re-arms it through here.
+
         var r = audioCtx.resume();
         if (r && typeof r.catch === 'function') r.catch(function(){});
       }
@@ -2164,36 +1559,13 @@
   function onAudioInterruption(){
     if (!audioCtx || audioCtx.state !== 'interrupted') return;
     if (video.paused || video.ended || !state.now) return;
-    // Muted playback owns no audio session — an 'interrupted' flip
-    // while the launch video plays muted can never be a call taking
-    // this player's sound, so it must never pause the picture.
+
     if (video.muted) return;
-    // Startup race, not a phone call: the watchdog context is created
-    // / resumed inside attemptPlay, in the same gesture that starts
-    // the video WITH sound. On iOS the two fight over the shared
-    // audio session — the moment the <video> takes the session, the
-    // bare context flips to 'interrupted', and treating that flip as
-    // a call pauses the very playback the user has just started
-    // (userPaused set, retry ladder killed): press one dies, press
-    // two — context already settled — plays. An earlier guard keyed
-    // this to the time since the last play() CALL, but during a slow
-    // load that timestamp goes stale — the play() promise sits
-    // pending (so retries return early without refreshing it) while
-    // the first frame takes five-plus seconds to arrive, and the
-    // flip landed outside the window anyway: still two touches.
-    // The reliable signal is the video's own playback: only believe
-    // the flip once playback has been ESTABLISHED — running
-    // continuously for several seconds (state.playingSince, stamped
-    // by the 'playing' listener and reset on every switch). A real
-    // call interrupts established playback, long past that window,
-    // and still pauses exactly as before; every startup flip lands
-    // inside it no matter how slow the stream was.
+
     if (!state.playingSince || Date.now() - state.playingSince < 5000) return;
     playLog('audio interruption began — pausing playback');
     state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
-    // Same defensive re-publish as the media-session pause handler:
-    // SJTV stays the Now Playing source while interrupted-paused, so
-    // the lock screen / Control Center play button still reaches it.
+
     if ('mediaSession' in navigator){
       try {
         if (!navigator.mediaSession.metadata && state.now) setMediaSession(state.now);
@@ -2203,22 +1575,15 @@
   }
 
   function onStreamDead(reason){
-    // The hls.js engine died but this browser has a native HLS
-    // stack: give the same channel one native attempt before any
-    // dead / auto-skip handling (see fallbackToNative).
+
     if (fallbackToNative()) return;
     var ch = state.now || state.channels[state.index];
     if (!ch) return;
-    // Startup grace: a fatal error in the first seconds of a switch,
-    // before a single frame has played, is not proof the stream is
-    // dead — slow-starting streams (Bloomberg's multi-variant master)
-    // can trip one while still loading. Wait out the rest of the grace
-    // window; only declare it dead if it still hasn't played by then.
-    // The skip-guard / loop protection below is unchanged.
+
     if (!state.playedThisSwitch && state.switchAt &&
         (Date.now() - state.switchAt) < STARTUP_GRACE_MS &&
         video.readyState < 2){
-      if (state.deadDeferred) return; // re-check already scheduled — further errors don't shorten the window
+      if (state.deadDeferred) return;
       state.deadDeferred = true;
       showStageMsg('Still loading ' + ch.name + ' — giving it a moment…', false);
       spinner.classList.add('on');
@@ -2238,7 +1603,7 @@
     var ch = state.now || state.channels[state.index];
     if (!ch) return;
     var now = Date.now();
-    // If every channel failed within the last 20s, stop skipping (bad network, not bad channels).
+
     state.skipGuard[ch.url] = now;
     var recentFails = Object.keys(state.skipGuard).filter(function(k){ return now - state.skipGuard[k] < 20000; }).length;
     if (AUTO_SKIP_ENABLED && state.channels.length > 1 && recentFails < Math.min(6, state.channels.length)){
@@ -2260,17 +1625,7 @@
 
   function togglePlay(){
     if (!video.currentSrc){
-      // Nothing is loaded in the player yet. This is the restored-session
-      // case: on load, state.now / state.index point at the last played
-      // channel — its list row even shows the animated "playing" bars —
-      // but no stream was ever attached to <video>. Calling play() on an
-      // empty element can never start (and its rejection is not the
-      // autoplay one the overlay handles), so ▶ here must LOAD the
-      // channel for real via playChannel, switching view first if the
-      // channel lives in the other list. This check has to come before
-      // the paused check and can't hide behind state.index < 0: restore
-      // leaves index >= 0 whenever the channel is in the visible list,
-      // which is exactly the case that used to dead-end.
+
       if (state.now){
         var i = indexOfUrl(state.channels, state.now.url);
         if (i < 0){
@@ -2286,8 +1641,7 @@
       state.userPaused = false;
       tryPlay();
     } else {
-      // Deliberate pause: cancel every pending play retry so nothing
-      // restarts the channel behind the user's back.
+
       state.userPaused = true;
       playSeq++;
       clearPlayTimers();
@@ -2316,10 +1670,6 @@
     document.title = ch.name + ' — SJTV';
   }
 
-  /* ============ Maya voice — closest warm female match on this device ============
-     Maya (the Morning Brief host voice) isn't available to the browser's
-     speechSynthesis for live, arbitrary channel names, so pick the closest
-     warm female English voice the device offers, in preference order. */
   var mayaVoice = null;
   function pickMayaVoice(){
     if (!('speechSynthesis' in window)) return null;
@@ -2363,14 +1713,12 @@
 
   function announce(ch, i){
     showControls();
-    /* No on-video text banner on a channel change (removed by request):
-       the icon controls still appear via showControls() above, and the
-       channel name shows in the selector bar under the player. */
+
     if (ANNOUNCE_VOICE_ENABLED && 'speechSynthesis' in window){
       try {
         window.speechSynthesis.cancel();
         var u = new SpeechSynthesisUtterance(ch.name);
-        // Maya is warm and unhurried — a touch slower and lower than the default.
+
         u.rate = 0.95;
         u.pitch = 0.95;
         var v = pickMayaVoice();
@@ -2381,32 +1729,9 @@
     }
   }
 
-  /* ============ Media Session — steering wheel / Bluetooth media keys ============
-     setMediaSession() publishes the current channel's metadata when a
-     channel is switched to (see playChannel); the action handlers
-     route steering-wheel, Bluetooth headset and lock screen /
-     Control Center controls through the same play engine as the
-     on-screen controls. The session is always established as ONE unit —
-     handlers + metadata + playback state: setMediaSession()
-     (re)registers the handlers alongside the metadata, and the video
-     'playing' listener calls setMediaSession() again once the new
-     source is really playing, because a playlist switch publishes the
-     metadata while the element is still emptied by the source swap —
-     iOS then keeps ⏮/⏭ (handler-driven) but drops Play/Pause
-     (element-driven) until the session is re-published at playback. */
   function setMediaSession(ch){
     if (!('mediaSession' in navigator)) return;
-    /* Metadata, playback state and handler registration are separate
-       steps on purpose. They used to share one try block, and one
-       channel in the built-in list (France 24) carries a logo URL
-       with a space in the host — an invalid artwork URL makes the
-       MediaMetadata constructor throw, so for that channel the
-       playback state was never published either, and a car / OS
-       media stack deciding which session owns the steering controls
-       saw an unpublished session. Now: the artwork is only offered
-       when it is a clean absolute http(s) URL with no spaces, the
-       metadata assignment has its own try, and the state publish
-       always runs. */
+
     try {
       var art = [];
       if (ch.logo && /^https?:\/\/\S+$/i.test(ch.logo)) art = [{ src: ch.logo, sizes: '512x512' }];
@@ -2418,37 +1743,17 @@
       });
     } catch(e){}
     try {
-      // Keep the session's playback state in step with the element
-      // whenever metadata is (re)published, so iOS always sees SJTV
-      // as a live (playing or deliberately paused) Now Playing source
-      // rather than an idle session it can hand back to another app.
+
       navigator.mediaSession.playbackState = (video.paused || video.ended) ? 'paused' : 'playing';
     } catch(e){}
     registerMediaHandlers();
   }
-  /* Hold SJTV's claim on the system Now Playing slot for the channel
-     that is loaded: re-publish the metadata if the browser has dropped
-     it, and keep playbackState in step with the element. Publishing
-     once at pause time is NOT enough for a long pause — WebKit can
-     idle / unload a paused element minutes later and take the page's
-     Now Playing registration down with it, after which Control Center
-     shows (and Play starts) whatever app played before SJTV. So this
-     is re-run whenever the element empties, whenever the page comes
-     back to the foreground, and on a slow keeper timer below while a
-     channel is loaded. Re-asserting a PAUSED state never steals the
-     slot back from an app that is actively playing — it only stops
-     SJTV's own paused registration from evaporating. */
+
   function holdMediaSession(){
     if (!state.now || !('mediaSession' in navigator)) return;
     try {
       if (video.paused || video.ended){
-        // Paused is the fragile state: re-publish the WHOLE session
-        // (fresh metadata + handlers + 'paused' state), not just fill
-        // a missing metadata slot — a registration WebKit has idled
-        // internally is only revived by publishing again. While
-        // playing, the 'playing' listener already re-publishes, so
-        // there the light touch (fill in only if missing) is enough
-        // and avoids churning a live session.
+
         setMediaSession(state.now);
       } else {
         if (!navigator.mediaSession.metadata) setMediaSession(state.now);
@@ -2456,37 +1761,14 @@
       }
     } catch(e){}
   }
-  /* Deliberate pause from a remote (media session, media key):
-     cancels every pending play retry so nothing restarts behind the
-     user's back, and keeps SJTV registered as the Now Playing source
-     WHILE paused — metadata stays published and playbackState reads
-     'paused'. If the session is allowed to lapse at pause time, iOS
-     hands Now Playing back to the previous source (e.g. Podcasts)
-     and the next remote Play never reaches this page at all. */
+
   function pauseDeliberately(){
     state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
     holdMediaSession();
   }
-  /* One skip entry point for EVERY remote route — Media Session
-     track / seek actions and wheel key events alike — with a short
-     dedupe window. One physical tilt can legitimately arrive twice
-     (a keydown AND a keyup delivery, or a session action plus an
-     arrow key for the same press); without the window the channel
-     jumped two places and the press looked broken. The window only
-     collapses repeats of the SAME direction inside 450ms — a
-     deliberate quick double-tilt a moment later still lands, and a
-     tilt the other way is never eaten. The route name is kept so the
-     stage can say which path delivered the skip (see remoteNoteEl):
-     on the Tesla, where three previous rounds of handler fixes
-     changed nothing the driver could see, knowing whether the press
-     arrived as a Media Session action, an arrow key, or not at all
-     is the difference between a fix and another guess. */
+
   var lastRemoteSkip = { dir: '', at: 0 };
-  /* No route text on the video (removed by request): a remote / media-key
-     channel change used to draw a "Next channel · via Media Session"
-     pill at the bottom-left of the player. The skip itself is unchanged
-     — remoteSkip() below still switches the channel — it just no longer
-     writes any control text onto the video. */
+
   function noteRemoteRoute(text){}
   function remoteSkip(dir, via){
     var now = Date.now();
@@ -2499,11 +1781,7 @@
   function registerMediaHandlers(){
     if (!('mediaSession' in navigator)) return;
     var handlers = {
-      // Track / seek actions are channel switches, and a switch from
-      // a remote press keeps the launch mute (remoteKeepMuted): on
-      // the Tesla wheel these tilted left/right and did nothing at
-      // all while the launch was muted, because the switch unmuted
-      // first and the car browser refused the with-sound start.
+
       previoustrack: function(){ remoteSkip('prev', 'Media Session ⏮'); },
       nexttrack: function(){ remoteSkip('next', 'Media Session ⏭'); },
       play: function(){ resumeRemote(); },
@@ -2511,11 +1789,7 @@
       stop: function(){ pauseDeliberately(); },
       seekbackward: function(){ remoteSkip('prev', 'Media Session ⏪'); },
       seekforward: function(){ remoteSkip('next', 'Media Session ⏩'); },
-      /* Some stacks express a wheel tilt as an absolute seek instead
-         of a track action: forward of the playhead means next,
-         behind it means previous. Live streams sit at the live edge,
-         so any requested position behind the playhead reads as
-         "previous"; a forward seek lands on the next channel. */
+
       seekto: function(d){
         if (d && typeof d.seekTime === 'number' && d.seekTime < (video.currentTime || 0) - 1) remoteSkip('prev', 'Media Session seek');
         else remoteSkip('next', 'Media Session seek');
@@ -2527,17 +1801,6 @@
   }
   registerMediaHandlers();
 
-  /* Session keeper — the long-pause half of the Control Center fix.
-     A channel can sit paused for a long time (lock screen, another
-     app in front); while the page is alive, this slow timer plus the
-     foreground-return hooks re-run holdMediaSession() so SJTV's
-     paused Now Playing registration is renewed instead of lapsing
-     back to the previously played app. 20s is deliberately gentle:
-     it only republishes state the page already owns. If iOS fully
-     suspends or discards the page, no timer can run — the 'emptied'
-     and foreground hooks are the recovery for every lighter case,
-     and resumeRemote() below rebuilds the stream itself when a Play
-     press does arrive after the element was unloaded. */
   setInterval(function(){ holdMediaSession(); }, 20000);
   document.addEventListener('visibilitychange', function(){
     if (!document.hidden) holdMediaSession();
@@ -2546,46 +1809,6 @@
   window.addEventListener('focus', holdMediaSession);
   document.addEventListener('resume', holdMediaSession);
 
-  /* ============ Keyboard — covers remotes that send key events ============
-     Some remotes and car browsers (Tesla's among them) deliver
-     steering-wheel / media buttons as key events instead of Media
-     Session actions, and the vocabulary varies by platform: discrete
-     MediaPlay / MediaPause keys, the legacy MediaNextTrack /
-     MediaPreviousTrack names, TV-remote ChannelUp / ChannelDown and
-     MediaChannelNext / MediaChannelPrevious, the arrow keys (the
-     Tesla wheel's left/right tilt), or no usable key name at all —
-     just the legacy keyCode (176 next, 177 previous, 178 stop, 179
-     play/pause, 37 / 39 arrows). All of them are recognized here and
-     routed through the same remote paths as the Media Session
-     handlers, launch mute preserved (remoteKeepMuted) for the same
-     reason — the arrow keys included: they used to call
-     nextChannel() / prevChannel() WITHOUT the flag, so a tilt took
-     the unmute-before-play path and the car browser refused the
-     with-sound start, exactly as the media keys once did.
-     Every key this handler acts on is marked on the event object
-     (__sjtvRemoteHandled): the keydown first-interaction listener
-     below skips marked events, because unmuting in the same event
-     as a remote start undoes it (see that listener's note), and the
-     duplicate registrations of this handler (capture phase on
-     document, bubble on window — some embedded / car browsers
-     dispatch key events at window only, and a focused control can
-     stop a bubble-phase event before it ever reaches document) use
-     the same mark to avoid acting twice on one press. True media
-     keys are handled even when a text field still has focus — a
-     steering press is never text editing. A field keeps its
-     ordinary keys, arrows included, only while it is actually on
-     screen (channel panel or a modal open): focus parked in the
-     hidden panel's search field or group select used to swallow
-     every tilt whole, and closing the panel now blurs those fields
-     and parks focus on the stage (see setChanPanel / playChannel).
-     The name resolution also covers the legacy 'Left' / 'Right'
-     key names and keyIdentifier some car Chromium forks report,
-     presses whose only usable value is e.code, and the legacy
-     keyCode even when e.key carries an unrelated string — each of
-     those deliveries used to fall through the old resolver. */
-  /* The recognized-name tables. NEXT / PREV collect every name a
-     skip press has been seen under across desktop Chrome, TV
-     remotes and embedded / car Chromium forks. */
   var REMOTE_NEXT_KEYS = ['MediaTrackNext', 'MediaNextTrack', 'NextTrack', 'MediaChannelNext',
     'ChannelUp', 'MediaFastForward', 'FastForward', 'MediaSkipForward', 'SkipForward', 'TrackNext'];
   var REMOTE_PREV_KEYS = ['MediaTrackPrevious', 'MediaPreviousTrack', 'PreviousTrack', 'PrevTrack',
@@ -2595,18 +1818,7 @@
   function onRemoteKey(e){
     if (!e || e.__sjtvRemoteHandled) return;
     var key = e.key || '', code = e.code || '';
-    /* Resolve the press to ONE name from every field the event
-       carries. The old resolver trusted e.key first and only fell
-       back to keyCode when the key was missing/'Unidentified' — and
-       its arrow branches then tested e.key, never the resolved
-       name. Three real deliveries fell through that gap:
-         · forks that report the tilt as the legacy names 'Left' /
-           'Right' (keyIdentifier on old WebKit forks says the same);
-         · events whose usable value sits in e.code while e.key is
-           some other string;
-         · events with a non-empty but meaningless e.key plus a
-           usable legacy keyCode (176/177/37/39), which the old
-           Unidentified-only fallback never consulted. */
+
     var name = key || code || '';
     var kid = '';
     try { kid = e.keyIdentifier || ''; } catch(err){}
@@ -2625,14 +1837,7 @@
     var isMediaKey = name === 'MediaPlay' || name === 'MediaPause' || name === 'MediaStop' ||
       REMOTE_TOGGLE_KEYS.indexOf(name) >= 0 ||
       REMOTE_NEXT_KEYS.indexOf(name) >= 0 || REMOTE_PREV_KEYS.indexOf(name) >= 0;
-    /* Focus trap: form fields keep their ordinary keys ONLY while
-       the field is actually on screen. The search field and group
-       <select> live in the channel panel; with the panel closed the
-       field is hidden, yet it could still hold focus (closing the
-       panel used to leave it there), and this early return then ate
-       every wheel tilt — the press reached the page and died here.
-       Media keys are exempt as before; now arrows are too whenever
-       the panel (or a modal) isn't open over the player. */
+
     var tag = (e.target && e.target.tagName) || '';
     if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && !isMediaKey &&
         (chanPanelOpen() || document.querySelector('.modal.on'))) return;
@@ -2649,40 +1854,16 @@
     else if (key === 'Escape'){ if (chanPanelOpen()){ e.preventDefault(); setChanPanel(false); } }
     else if (key === 'f'){ toggleFullscreen(); }
     else if (name && (name.indexOf('Media') === 0 || name.indexOf('Track') >= 0 || name.indexOf('Channel') >= 0)){
-      /* A media-ish press the tables don't know: say so on screen,
-         with the exact name this browser reported. On the car that
-         one line turns the next test into the missing table entry
-         instead of another blind round. */
+
       noteRemoteRoute('Unrecognized remote key: ' + name + (code && code !== name ? ' (' + code + ')' : ''));
     }
   }
-  /* Registered in the capture phase on document as well as on window:
-     a tilt aimed at a focused control that stops propagation on its
-     way up (a <select> changing its value is the classic case) never
-     reached the old bubble-phase document listener at all. The
-     __sjtvRemoteHandled mark keeps the copies from acting twice, and
-     keyup is listened to as well — some embedded stacks deliver a
-     media press on release only; the remoteSkip dedupe window keeps
-     a press delivered as keydown+keyup to a single skip. */
+
   document.addEventListener('keydown', onRemoteKey, true);
   document.addEventListener('keyup', onRemoteKey, true);
   window.addEventListener('keydown', onRemoteKey);
   window.addEventListener('keyup', onRemoteKey);
 
-  /* ============ Zoom lock — fit-to-screen, no page zoom ============
-     The player is fluid and sized to be used as-is, and page zoom is off
-     by request. The viewport meta (maximum-scale=1, user-scalable=no)
-     covers most browsers, but iOS Safari ignores user-scalable=no in
-     places, so the remaining zoom routes are blocked here:
-       · gesturestart / gesturechange — iOS pinch zoom
-       · double-tap — tracked via touchend timing; taps on controls are
-         left alone so rapid PREV/NEXT tapping never gets eaten, and CSS
-         touch-action:manipulation already removes double-tap zoom on
-         interactive elements
-       · Ctrl/Cmd + wheel (incl. trackpad pinch) and Ctrl/Cmd +/-/0 on
-         desktop — only those zoom combos are swallowed; ordinary keys,
-         scrolling and the player's own shortcuts pass through untouched.
-     Vertical scrolling of the page and channel list is unaffected. */
   document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, { passive: false });
   document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, { passive: false });
   document.addEventListener('wheel', function(e){
@@ -2702,59 +1883,19 @@
     lastTouchEnd = nowTs;
   }, { passive: false });
 
-  /* ============ Buttons, gestures, misc controls ============ */
   $('tapPlay').addEventListener('click', function(){
-    // A real tap — the one gesture autoplay policy always honours.
-    // Everything this press does happens HERE, synchronously, while
-    // the gesture is live; nothing is deferred to a timer, because a
-    // play() issued from a timer carries no gesture and is refused.
+
     state.userPaused = false;
     endBoot(true);
     hideTapPlay();
     spinner.classList.add('on');
-    // Same stale-promise reset as tryPlay: this press must issue its
-    // own play(), not be swallowed by an earlier promise still
-    // pending from the boot attempt.
+
     playPending = false;
     if (isPlaying()) return;
-    // Decide from what the element is actually doing:
-    //   · a load is genuinely in flight (network busy fetching, or
-    //     data already buffered) — the stream is healthy and merely
-    //     waiting for permission: issue play() on it right here in
-    //     the gesture and let that load finish. Reloading would
-    //     throw away everything already fetched for nothing.
-    //   · the element is stale (no source, error state, no-source
-    //     network state) or simply idle (nothing loading, no data —
-    //     an earlier load died quietly and a bare play() on it goes
-    //     nowhere): reload the SAME channel synchronously through
-    //     the full switch path, so the fresh load's first play()
-    //     attempt is itself gesture-backed — exactly what tapping
-    //     the channel's row does, and a row tap starts on one press.
-    // There is deliberately NO timed "reload if still paused" check
-    // after this handler anymore. The previous one fired 2s after
-    // the press whenever video.paused was still true — but on the
-    // native HLS path paused stays true until the first frame
-    // renders, which on a phone connection routinely takes longer
-    // than the check, so it discarded healthy in-flight loads; and
-    // the reload it fired ran OUTSIDE the tap, so the restarted
-    // load's play() attempts were refused and the overlay came
-    // back — press one "kept loading", only press two played. A
-    // load that truly never starts is still caught — by the fresh
-    // switch's own startup watchdog, which begins with the reload.
+
     var inFlight = video.networkState === 2 || video.readyState > 0;
     var stale = !video.currentSrc || !!video.error || video.networkState === 3;
-    // Native path (Safari / WebKit) with NO data at all: networkState
-    // cannot be trusted as "healthy load in flight" there — a native
-    // HLS element whose launch load wedged or was suspended by iOS
-    // sits at readyState 0 while still reporting NETWORK_LOADING
-    // indefinitely, so the in-flight test above waved the first press
-    // through to a bare play() on a load that was never going to
-    // deliver a frame ("press it, keeps loading"), and only a later
-    // press — after iOS finally idled the element — reloaded. A
-    // native element holding zero data when the user taps is not a
-    // load worth preserving: reload it inside this gesture, like the
-    // stale case. The hls.js path keeps the networkState test exactly
-    // as it was — Chromium reports it honestly there.
+
     var nativeNoData = !state.hls && video.readyState === 0;
     if (state.now && (stale || !inFlight || nativeNoData)){
       playLog('tap-to-play: no live load to resume — reloading ' + state.now.name + ' inside the gesture');
@@ -2763,8 +1904,7 @@
     attemptPlay(playSeq, 'tap-to-play');
   });
   $('soundPill').addEventListener('click', function(){
-    // The muted boot stream is already playing: this tap only unmutes
-    // it — same stream, same channel, no reload, no restart.
+
     video.muted = false;
     video.volume = 0.9;
     state.interacted = true;
@@ -2777,19 +1917,6 @@
   $('tapToggle').addEventListener('click', togglePlay);
   stage.addEventListener('dblclick', function(){ toggleFullscreen(); });
 
-  /* ============ On-screen controls — middle only, auto-hide ============
-     One set of controls, always in the middle of the player, in
-     BOTH the normal and the pinned (stuck) layouts: the three
-     round tap buttons spread distant across the player — Previous
-     far left, Play/Pause centre, Next far right. Scrolling up /
-     down pins and unpins the stage but never swaps, moves or
-     resizes this set — the old close-together centre pill that
-     used to appear in the pinned layout is gone. They show on
-     load and whenever the player is touched (or the mouse moves
-     over it), then auto-hide 3s after the last touch while a
-     channel plays; while paused they stay up. Hidden controls have
-     pointer-events off, so the touch that reveals them lands on the
-     stage itself and never also skips a channel or toggles play. */
   var controlsHideTimer = null;
   function controlsShouldStay(){
     return !state.now || video.paused || video.ended ||
@@ -2820,28 +1947,6 @@
     if (Math.abs(dx) > 60){ if (dx < 0) nextChannel(); else prevChannel(); }
   }, { passive: true });
 
-  /* Volume has no on-screen control anymore — the device / system
-     volume controls it. */
-  /* ============ Fullscreen — real browser / video fullscreen, with the
-     fallback chain iPhone Safari needs. The old code only ever called
-     stage.requestFullscreen(), which does not exist on iPhone Safari at
-     all (no element fullscreen), so the button silently did nothing
-     there. Chain, all fired synchronously from the tap so the user
-     gesture is still valid when the later methods run:
-       1. stage.requestFullscreen()   — desktop / Android: fullscreen
-          the whole stage so overlays, announce and tap zones come along
-       2. video.requestFullscreen()   — iPad Safari / other browsers
-       3. video.webkitEnterFullscreen() — iPhone Safari's only route;
-          needs a loaded, playable video (it throws otherwise)
-       4. video.webkitRequestFullscreen() — older WebKit builds
-     Every failure is logged to the console; if nothing works, a toast
-     says so instead of a dead button. The pinned (stuck) stage is
-     unpinned BEFORE requesting — position:fixed inside the scrolling
-     page traps/breaks element fullscreen — and fullscreenchange /
-     webkitendfullscreen re-run checkStuck() so the pinned layout comes
-     back exactly as it was. Nothing here pauses or reloads the stream.
-     playsinline stays on: it only governs inline playback, and
-     webkitEnterFullscreen works with it. */
   function fsElement(){
     return document.fullscreenElement || document.webkitFullscreenElement || null;
   }
@@ -2850,7 +1955,7 @@
   }
   function fsLog(msg){ try { console.log('[SJTV] fullscreen: ' + msg); } catch(e){} }
   function lockLandscape(){
-    // Android Chrome honours this once fullscreen; iOS ignores it.
+
     try {
       if (window.screen && screen.orientation && typeof screen.orientation.lock === 'function'){
         var p = screen.orientation.lock('landscape');
@@ -2918,16 +2023,13 @@
         var r = a.run();
         if (r && typeof r.then === 'function'){
           r.then(ok, function(err){ fail(err && (err.message || err.name) ? (err.message || err.name) : 'rejected'); });
-          // Safety net: a promise that settles neither way and never
-          // produces a fullscreen element counts as a failure.
+
           setTimeout(function(){
             if (done) return;
             if (fsIsActive()) ok(); else fail('no fullscreen element appeared');
           }, 600);
         } else {
-          // Synchronous APIs (webkitEnterFullscreen) return nothing:
-          // success shows up a beat later as a fullscreen element or
-          // webkitDisplayingFullscreen flipping true.
+
           setTimeout(function(){
             if (done) return;
             if (fsIsActive()) ok(); else fail('fullscreen did not engage');
@@ -2956,35 +2058,11 @@
     setTimeout(checkStuck, 60);
   });
 
-  /* ============ Picture in picture — AUTOMATIC on exit. There is no
-     manual PiP button anymore: when a channel is playing and the user
-     leaves the player — above all switching BACK to the Muse chat
-     from this artifact page (tap back / switch inside the Muse app),
-     but also an app switch, tab switch or page close — SJTV pops the
-     video into PiP on its own so the news keeps playing over whatever
-     comes next. The attempt fires on the EARLIEST exit signal,
-     whichever arrives first — window blur, Page Lifecycle freeze,
-     visibilitychange→hidden, pagehide or beforeunload — deduplicated
-     so it only tries once per exit; a closing/hidden page gives almost
-     no time, so the video is kept PiP-ready while it plays (see
-     armPipReady) and the exit attempt is a single fast call, never a
-     setup sequence. Standard API where available, iOS Safari's webkit
-     presentation mode otherwise. Attempts are strictly best-effort:
-     the host webview may refuse PiP, so every failure is swallowed
-     silently (no toast on exit, nothing throws). Fallback when PiP is
-     refused: the video is NEVER paused on hide (there is no
-     pause-on-hidden logic anywhere), and the Media Session is left
-     presenting playbackState 'playing' with the channel metadata, so
-     background audio / lock-screen controls keep the stream alive as
-     far as the platform allows. If the host app fully destroys this
-     page's webview, no web page can survive that — PiP, fired early,
-     is the survival mechanism. On return, the same stream, channel and
-     list position resume with no reload of playlist or stream. */
   function pipIsActive(){
     if (document.pictureInPictureElement) return true;
     return video.webkitPresentationMode === 'picture-in-picture';
   }
-  function syncPipUI(){ /* no PiP button left to sync — kept as a no-op hook for the video PiP events */ }
+  function syncPipUI(){   }
   function enterPip(auto){
     var fail = function(){ if (!auto) toast('Picture-in-picture is not available for this stream in this browser.'); };
     try {
@@ -3009,9 +2087,7 @@
     } catch(e){}
     setTimeout(syncPipUI, 80);
   }
-  /* PiP-ready arming, run while a channel plays (and at every switch),
-     so an exit attempt is one fast call — not a setup sequence a
-     closing page would never finish. */
+
   function armPipReady(){
     try { video.disablePictureInPicture = false; } catch(e){}
     try {
@@ -3022,10 +2098,7 @@
     } catch(e){}
   }
   video.addEventListener('playing', armPipReady);
-  /* Dedup latch: the first exit signal arms the one PiP attempt; the
-     signals that follow in the same exit (blur→freeze→hidden→pagehide
-     often arrive together) are ignored. Returning to the page resets
-     the latch so the NEXT exit can try again. */
+
   var autoPipLatched = false;
   function resetAutoPipLatch(){ autoPipLatched = false; }
   function tryAutoPip(){
@@ -3034,18 +2107,15 @@
       if (!state.now || video.paused || video.ended) return;
       if (pipIsActive()) return;
       autoPipLatched = true;
-      // Arm first (fast, synchronous): PiP unblocked + Media Session
-      // presenting this channel as still playing — that metadata /
-      // playbackState is also the background-audio fallback if the
-      // PiP call itself is refused on this exit path.
+
       armPipReady();
       enterPip(true);
-    } catch(e){ /* best-effort only — never break the exit */ }
+    } catch(e){   }
   }
   video.addEventListener('enterpictureinpicture', syncPipUI);
   video.addEventListener('leavepictureinpicture', syncPipUI);
   video.addEventListener('webkitpresentationmodechanged', syncPipUI);
-  // EVERY exit signal, whichever comes first (deduplicated above):
+
   window.addEventListener('blur', tryAutoPip);
   window.addEventListener('pagehide', tryAutoPip);
   window.addEventListener('beforeunload', tryAutoPip);
@@ -3053,47 +2123,22 @@
   document.addEventListener('visibilitychange', function(){
     if (document.hidden) tryAutoPip(); else resetAutoPipLatch();
   });
-  // Return path: re-arm for the next exit; nothing reloads or resumes
-  // specially — the stream was never paused or torn down.
+
   window.addEventListener('focus', resetAutoPipLatch);
   window.addEventListener('pageshow', resetAutoPipLatch);
   document.addEventListener('resume', resetAutoPipLatch);
 
-  /* ============ Sticky player — keep the playing video in view while
-     scrolling down the page / channel list. The stage (and its <video>)
-     is never moved in the DOM or reloaded: it only gains position:fixed
-     at its true 16:9 shape, so playback, HLS and PiP carry on untouched
-     and the whole picture stays visible (object-fit:contain — never
-     cropped). The wrap keeps its full height as a placeholder so the
-     page layout doesn't jump, and scrolling back to the top restores
-     full size. Position is recalculated only when the pin engages and
-     on resize / orientation change — never on scroll; recalculating on
-     every scroll event was what made the pinned player jitter. Pin and
-     unpin use different thresholds (hysteresis) so it can't flicker at
-     the boundary. The pinned stage sits FLUSH at var(--stuck-top)
-     (safe-area inset only, no designed gap — the page header is not
-     sticky and scrolls away, so flush is the viewport top); the
-     placeholder height includes that same offset so the page below
-     neither jumps nor slides under the pinned frame. */
   var stageWrap = $('stageWrap');
   var isStuck = false;
   function stuckTopPx(){
-    // Actual rendered offset of the pinned stage (safe-area only, 0 on
-    // most devices); no designed gap to fall back to.
+
     if (isStuck){
       var t = stage.getBoundingClientRect().top;
       if (t >= 0 && t < 240) return t;
     }
     return 0;
   }
-  /* Explicit pinned size: the stage gets a width AND height pair that
-     already honors the viewport-height cap (64% normally; 88% in a
-     short landscape viewport, where 64% of an already-collapsed
-     height would leave a stamp-sized player with no room for its
-     controls). Setting both dimensions inline is what
-     stops WebKit re-solving aspect-ratio against a CSS max-height
-     and shrinking the box — the landscape bug. When the cap trims
-     the width, the stage stays centered in its column. */
+
   function stuckSize(){
     var wrapW = stageWrap.clientWidth;
     var shortLandscape = window.innerWidth > window.innerHeight && window.innerHeight <= 540;
@@ -3109,8 +2154,7 @@
     stage.style.height = s.h + 'px';
     stage.style.left = (r.left + (r.width - s.w) / 2) + 'px';
     if (isStuck){
-      // Keep the placeholder in step on resize / orientation change:
-      // unstuck height is the wrap width at 16:9, plus the top offset.
+
       var baseH = stageWrap.clientWidth * 9 / 16;
       stageWrap.style.height = (baseH + stuckTopPx()) + 'px';
     }
@@ -3123,8 +2167,7 @@
       stageWrap.style.height = baseH + 'px';
       stage.classList.add('stuck');
       positionStuck();
-      // Placeholder must include the new top offset, not just the
-      // frame height, so engaging the pin doesn't shift the list below.
+
       stageWrap.style.height = (baseH + stuckTopPx()) + 'px';
     } else {
       stage.classList.remove('stuck');
@@ -3134,12 +2177,7 @@
       stageWrap.style.height = '';
     }
   }
-  /* Rotation guard: turning the device fires resize / scroll with
-     mid-rotation geometry and a scroll position the browser adjusts
-     on its own — neither is a user scroll, and measuring then is how
-     the pin engaged (and sized itself) on stale portrait numbers.
-     A new pin is suppressed briefly after orientationchange, and the
-     pinned size is re-measured once rotation has settled. */
+
   var pinSuppressUntil = 0, repinTimer = null;
   function repinSettled(){
     clearTimeout(repinTimer);
@@ -3163,31 +2201,6 @@
   $('miniPlay').addEventListener('click', function(){ togglePlay(); showControls(); });
   $('miniBar').addEventListener('dblclick', function(e){ e.stopPropagation(); });
 
-  /* Autoplay policy: start muted; first tap/click anywhere unmutes for the session.
-     WHICH event carries that first interaction matters on WebKit — the
-     root of the persistent "needs 2 touches on iPhone Safari" bug that
-     survived every launch fix: this used to run on pointerdown, where
-     it UNMUTED the still-loading boot stream and issued a play() a
-     moment before the tap's own click handler ran. Chromium treats
-     pointerdown as full transient activation, so the sequence was
-     harmless there (muted launch + first tap both work on Android /
-     Tesla). WebKit does not honour pointerdown as a media gesture:
-     the unmute landed on a PENDING muted start with no gesture the
-     media engine counts — and an unmute without a gesture is exactly
-     what makes WebKit suspend an autoplay start — while the play()
-     issued there was refused / left pending, so the tap's click
-     played into a suspended load ("press it, keeps loading"). The
-     second touch worked because state.interacted was already set:
-     no pointerdown interference, and the click handler's own play()
-     ran on a settled element. So:
-       · pointerdown now ONLY unmutes a video that is ALREADY playing
-         (the tap-for-sound-anywhere convenience — unmuting running
-         playback is safe) and otherwise leaves the pending start
-         strictly alone: no unmute, no play(), no interacted flag.
-       · the full first-interaction (mark, unmute, start-if-paused)
-         runs on click — after the tapped control's own handler, whose
-         start attempt the play gates dedupe — because click is the
-         one gesture every media engine, WebKit included, honours. */
   function firstInteraction(){
     if (state.interacted) return;
     state.interacted = true;
@@ -3203,26 +2216,11 @@
   });
   document.addEventListener('click', firstInteraction);
   document.addEventListener('keydown', function(e){
-    /* A key the remote handler just acted on (steering wheel / media
-       key) is NOT a first interaction. This listener runs after
-       onRemoteKey in the same dispatch, and falling through to
-       firstInteraction() here unmuted — in that same event — the
-       muted start the remote handler had just made: a script unmute
-       of a just-started muted stream, from a press the media engine
-       does not count as a page gesture, is exactly what Chromium-
-       based car browsers answer by pausing the video. Resume and
-       channel switches from the Tesla wheel therefore started muted
-       and were instantly unmuted-and-paused — press did nothing —
-       while Pause alone survived, because pauseDeliberately() sets
-       userPaused and firstInteraction's restart check honours it.
-       Marked events are skipped; ordinary keys (and every later key,
-       once interacted) behave exactly as before, and a screen tap
-       still unmutes via the click path above. */
+
     if (e && e.__sjtvRemoteHandled) return;
     firstInteraction();
   });
 
-  /* ============ Wake lock ============ */
   var wakeLock = null;
   $('wakeBtn').addEventListener('click', function(){
     var btn = this;
@@ -3243,43 +2241,13 @@
   });
   document.addEventListener('visibilitychange', function(){
     if (document.hidden){
-      // Wake locks are dropped when the tab hides; user re-taps to restore.
+
       wakeLock = null;
-      // Switching away (e.g. to the Muse app): automatically pop the
-      // playing channel into picture-in-picture so it stays alive over
-      // the other app. Best-effort and silent if the browser refuses.
-      // Nothing is paused, unloaded or reloaded here or on return.
+
       tryAutoPip();
     }
   });
 
-  /* ============ Loading playlists — with fallbacks ============
-     Many playlist links can't be fetched by a browser directly:
-     shorteners (bit.ly) and Google Drive answer with redirects that
-     carry no CORS headers, so the fetch dies even though the file is
-     public. Fallback chain, in order: a direct Drive download URL
-     for any Drive link (it skips the blocked redirect chain; the
-     drive.usercontent host sends Access-Control-Allow-Origin: *) →
-     for GitHub-hosted playlists, the canonical raw.githubusercontent
-     URL plus CDN mirrors (jsDelivr + Statically serve the same file
-     with CORS headers) → the URL as entered (http
-     upgraded to https) → the public CORS proxy chain from
-     corsProxyRoutes() above (Corsfix and cors.eu.org first, then
-     AllOrigins raw, codetabs, cors.lol, plus the AllOrigins JSON
-     wrapper), which follow the redirects server-side → two retry
-     passes over the proxies after growing pauses, because the free
-     proxies are flaky (rate limits and brief outages are their
-     normal failure mode, and a later try often lands). If a proxy
-     response names the link's final URL after redirects (the
-     AllOrigins JSON wrapper does) and that URL is a Google Drive
-     file, its Drive-direct download form is tried next — the route
-     that carries short links to Drive files (bit.ly/sj-wnews)
-     when the proxies only bring back Drive's interstitial page.
-     corsproxy.io used to be in this chain; it now answers anonymous
-     requests with 401 (an API key is required), so it stays out.
-     Every response is checked to actually look like an M3U
-     before it's accepted, and the saved source keeps
-     the original URL so a restore re-runs the same chain. */
   function looksLikeM3U(text){
     return typeof text === 'string' && (text.indexOf('#EXTM3U') >= 0 || text.indexOf('#EXTINF') >= 0);
   }
@@ -3291,33 +2259,7 @@
   function driveDownloadUrl(id){
     return 'https://drive.usercontent.google.com/download?id=' + id + '&export=download&confirm=t';
   }
-  /* The built-in playlist's own short link (any scheme / www
-     variant), recognized by address alone: when every route to THIS
-     link fails, the loader falls back to the embedded snapshot of
-     the same playlist instead of reporting a dead link. The file
-     behind the short link is reached through the ordinary route
-     chain, like any other short link. */
-  var SJ_SHORT_LINK_RE = /^(?:https?:\/\/)?(?:www\.)?bit\.ly\/sj-wnews(?:[/?#].*)?$/i;
-  function isBuiltinLink(url){
-    return SJ_SHORT_LINK_RE.test(String(url || ''));
-  }
 
-  /* GitHub-hosted playlists (a very common way M3U links are shared:
-     raw.githubusercontent.com, github.com raw/blob pages, and
-     *.github.io project sites). The github.com page URL itself is
-     useless to a browser fetch: it answers 302 to
-     raw.githubusercontent.com with an EMPTY Access-Control-Allow-
-     Origin header, which browsers reject — so the chain goes straight
-     to the canonical raw host (verified: 200 + ACAO: *), then the CDN
-     mirrors that serve the same file with CORS headers, each in its
-     OWN URL format: jsDelivr takes repo@ref, Statically takes
-     repo/ref/ as path segments.
-     The ref parsing matters: links are often shared in the fully
-     qualified form …/raw/refs/heads/<branch>/<path> (the iptv-org
-     India list is one). Taking the segment after raw/ as the branch
-     captures "refs" instead of the real branch and every mirror URL
-     is wrong; strip a refs/heads/ or refs/tags/ prefix first.
-     Returns the route URLs to try, or [] for non-GitHub links. */
   function githubMirrorUrls(url){
     var m = String(url).match(/^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/(.+)$/i)
          || String(url).match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:raw|blob)\/(.+)$/i);
@@ -3360,12 +2302,7 @@
     }
     return fetch(url);
   }
-  /* Background re-fetch of the sticky online source succeeded: swap
-     the fresh channel list in WITHOUT disturbing what's on screen —
-     the playing channel keeps playing (remapped to its new index when
-     it is still in the list), the current view and favorites are
-     untouched, and nothing autoplays or re-renders the source pill.
-     Only the browsed list, the counts and the stored cache move. */
+
   function applyRefreshedChannels(chans){
     var nowUrl = state.now ? state.now.url : '';
     state.allChannels = chans;
@@ -3380,28 +2317,17 @@
     syncFavUI();
     if (state.now) updateNowPlaying();
     saveState();
-    // The refreshed list can change whether the loaded source reads
-    // as the built-in World News list (its online form differs from
-    // the embedded snapshot) — re-evaluate the footer source note
-    // instead of leaving whatever state the restore path set.
+
     syncSourceUI();
   }
 
-  /* opts.background: silent open-time refresh of the sticky online
-     source — silent, no stage messages; success applies
-     gently via applyRefreshedChannels instead of setPlaylist.
-     opts.onFail: called when every route failed, INSTEAD of the
-     default failure tail — the caller decides between keeping the
-     cached copy of the online source and the announced built-in
-     fallback. Manual loads pass neither and behave exactly as before. */
   function fetchPlaylist(url, label, desc, autoplayFirst, opts){
     opts = opts || {};
     var original = String(url || '').trim();
     var direct = original.replace(/^http:\/\//i, 'https://');
     var attempts = [];
     var did = driveIdFrom(direct);
-    /* Drive file ids already attempted directly, so the redirect-
-       target recovery below never queues the same file twice. */
+
     var driveTried = {};
     if (did){
       driveTried[did] = 1;
@@ -3409,20 +2335,11 @@
     }
     attempts = attempts.concat(githubMirrorUrls(direct));
     attempts.push({ method: 'Direct', url: direct });
-    /* The proxy routes are kept in their own list: after the first
-       full pass fails, the proxies get two retry passes (see tryNext) —
-       their usual failures are shared rate limits (HTTP 429) and
-       brief origin outages (HTTP 5xx), both of which clear within
-       seconds, while Drive / mirrors / Direct fail deterministically
-       and gain nothing from a second try. */
-    /* The proxies fetch server-side, so they get the URL exactly as
-       entered — NOT the https-upgraded `direct`: a playlist host
-       that only serves plain http would be stranded by the upgrade
-       in the browser, but a proxy can fetch the original fine. */
+
     var proxyAttempts = corsProxyRoutes(original).map(function(r){
-      return { method: 'Proxy · ' + r.name, url: r.url };
+      return { method: 'Proxy · ' + r.name, url: r.url, proxy: true };
     });
-    proxyAttempts.push({ method: 'Proxy · AllOrigins JSON', url: 'https://api.allorigins.win/get?url=' + encodeURIComponent(original), json: true });
+    proxyAttempts.push({ method: 'Proxy · AllOrigins JSON', url: 'https://api.allorigins.win/get?url=' + encodeURIComponent(original), json: true, proxy: true });
     attempts = attempts.concat(proxyAttempts);
 
     var d = desc || { kind: 'url', label: label, url: original };
@@ -3432,14 +2349,11 @@
     var queue = attempts.slice();
     var retryPass = 0;
     var RETRY_DELAYS = [4000, 12000];
-    /* Why each route failed, kept so a total failure can be reported
-       for what it actually is. A dead link (the host itself answers
-       404 — e.g. a short link whose target is gone) must read as a
-       dead link, not as a CORS block: before this, every attempt's
-       error was swallowed and the final toast always claimed "every
-       route was blocked", so a mistyped or expired link looked
-       exactly like a player failure. */
+
     var failNotes = [];
+    var proxyConsentAsked = false;
+    var proxyDeclined = false;
+    var proxiesOff = !!opts.background || !!opts.silentProxySkip;
     function loadFailMessage(){
       var deadStatus = 0, originStatus = 0, notPlaylist = false;
       failNotes.forEach(function(n){
@@ -3464,14 +2378,8 @@
     }
     function tryNext(){
       if (!queue.length){
-        // Retry passes over the proxies after a pause — attempted on
-        // every surface, CSP-blocked ones included: the chain is tried
-        // in full before any failure is reported. Two passes with a
-        // growing pause (4s, then 12s): a single short retry often
-        // lands inside the same rate-limit / outage window that sank
-        // the first pass, and the second, later pass is what carries
-        // links like bit.ly/sj-wnews through a bad proxy window.
-        if (retryPass < RETRY_DELAYS.length){
+
+        if (!proxiesOff && retryPass < RETRY_DELAYS.length){
           var retryDelay = RETRY_DELAYS[retryPass];
           retryPass++;
           queue = proxyAttempts.slice();
@@ -3480,19 +2388,11 @@
           return;
         }
         showStageMsg('', false);
-        // Caller-owned failure handling (open-time re-fetch of the
-        // sticky online source): the caller decides between keeping
-        // the cached copy and the announced built-in fallback. The
-        // default tail below is only for loads started by hand.
+
         if (opts.onFail){ opts.onFail(); return; }
-        if (isBuiltinLink(original) || isBuiltinLink(direct)){
-          // The built-in list's own short link, with every network route
-          // to it blocked: fall back to the built-in snapshot of the same
-          // playlist instead of failing. It becomes the sticky source.
-          loadBuiltinNews(autoplayFirst !== false, true);
-          return;
-        }
-        if (cspConnectBlocked){
+        if (proxyDeclined){
+          toast('Proxy use was declined, and that playlist could not be loaded directly. Open .m3u file or Paste playlist loads it without any proxy.', 8000);
+        } else if (cspConnectBlocked){
           toast('This link couldn’t be downloaded on the web link — every route was tried, including the proxy chain, but its security policy refused them all. The same link loads in the Muse app; on this page, Open .m3u file or Paste playlist works.', 9000);
         } else {
           toast(loadFailMessage(), 8000);
@@ -3500,6 +2400,28 @@
         return;
       }
       var a = queue.shift();
+      if (a.proxy && proxiesOff){
+        queue = queue.filter(function(x){ return !x.proxy; });
+        proxyAttempts = [];
+        tryNext();
+        return;
+      }
+      if (a.proxy && !proxyConsentAsked){
+        proxyConsentAsked = true;
+        if (!opts.background) showStageMsg('Direct loading failed — waiting for your choice on proxies', false);
+        askProxyConsent('This playlist could not be loaded directly by the browser. SJTV can try fetching it through a public CORS proxy instead.', original, function(ok){
+          if (ok){ runAttempt(a); return; }
+          proxyDeclined = true;
+          proxiesOff = true;
+          proxyAttempts = [];
+          queue = queue.filter(function(x){ return !x.proxy; });
+          tryNext();
+        });
+        return;
+      }
+      runAttempt(a);
+    }
+    function runAttempt(a){
       if (!opts.background) showStageMsg('Trying ' + a.method + '…', false);
       fetchWithTimeout(a.url, 15000).then(function(r){
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -3507,19 +2429,7 @@
       }).then(function(data){
         var text = a.json ? (data && data.contents) : data;
         if (!looksLikeM3U(text)){
-          /* Redirect-target recovery. The AllOrigins JSON wrapper
-             reports the FINAL url after redirects in status.url. For
-             a short link whose target is a Google Drive file
-             (bit.ly/sj-wnews is one), a proxy often comes back with
-             Drive's interstitial HTML page instead of the file, so
-             the route reads as failed even though the file was
-             reached — but the final URL still names the file. Queue
-             its Drive-direct download form next: that host sends
-             Access-Control-Allow-Origin: * and serves the file
-             itself, skipping both the short link's redirect chain
-             and the interstitial. This is the route that makes
-             sj-wnews load reliably instead of depending on whichever
-             free proxy happens to be up. */
+
           var finalUrl = (a.json && data && data.status) ? String(data.status.url || '') : '';
           var rid = finalUrl ? driveIdFrom(finalUrl) : '';
           if (rid && !driveTried[rid]){
@@ -3551,19 +2461,6 @@
     tryNext();
   }
 
-  /* ============ Save a URL-loaded playlist — ask for a name ============
-     When an .m3u URL loads successfully by hand (Load button), ask for
-     a name and keep the playlist in Saved Lists under that name. The
-     entry stores the URL as its source AND the full channel list, so
-     tapping the entry in Saved Lists plays the saved copy immediately
-     — no re-download and no proxy walk (the walk made every saved-list
-     tap slow, and on surfaces where playlist downloads are blocked it
-     could never succeed at all). "Refresh from URL" stays the way to
-     pull a fresh copy from the online source. Only an entry saved
-     before the channel copy was kept (channels: null) still loads from
-     its URL on tap — once, after which it is cached too. Refresh,
-     background refreshes and restores never ask — only a fresh
-     manual URL load does. */
   var pendingUrlSave = null;
   function suggestNameFromUrl(url){
     try {
@@ -3613,8 +2510,7 @@
     if (existing >= 0) state.savedLists[existing] = entry; else state.savedLists.push(entry);
     closeUrlSaveModal();
     renderSavedLists();
-    // The playlist just loaded is this one: adopt the chosen name as
-    // its source label so the pill and Refresh match Saved Lists.
+
     if (state.sourceDesc && state.sourceDesc.url === url){
       state.sourceDesc.label = name;
       state.source = name;
@@ -3624,13 +2520,6 @@
     toast('Saved “' + name + '” to Saved Lists — ' + chans.length + ' channels. Tap it there to play it anytime.');
   });
 
-  /* ============ Save dialog for pasted playlists ============
-     Mirrors the URL flow above: a fresh manual paste that parses to
-     playable channels asks for a name and stores the channel copy
-     under Saved Lists (no URL — the pasted text is the source, so
-     the entry always plays from its stored copy). Skip leaves the
-     pasted list loaded but unsaved, exactly as before. Saving under
-     an existing name replaces that entry instead of duplicating it. */
   var pendingPasteSave = null;
   function showSavePastedPlaylist(chans){
     pendingPasteSave = { channels: chans };
@@ -3665,8 +2554,7 @@
     if (existing >= 0) state.savedLists[existing] = entry; else state.savedLists.push(entry);
     closePasteSaveModal();
     renderSavedLists();
-    // The playlist just pasted is this one: adopt the chosen name as
-    // its source label so the pill matches Saved Lists.
+
     if (state.sourceDesc && state.sourceDesc.kind === 'paste'){
       state.sourceDesc.label = name;
       state.source = name;
@@ -3709,18 +2597,12 @@
     $('pasteModal').classList.remove('on');
     var chans = parseM3U(text);
     setPlaylist(chans, 'Pasted playlist', true, { kind: 'paste', label: 'Pasted playlist', url: '' });
-    // Only a paste that actually produced playable channels earns the
-    // save dialog (setPlaylist already toasts when none were found).
+
     if (chans.length) showSavePastedPlaylist(chans);
   });
 
-  /* ============ SJTV — built-in copy of the source playlist ============
-     Parses the embedded snapshot locally (zero network fetch) and makes it
-     the sticky source. Used by the SJTV entry under Saved Lists, as the
-     final fallback when every network route to bit.ly/sj-wnews fails, and
-     to restore the source when its channel cache didn't fit in storage. */
   function loadBuiltinNews(autoplayFirst, viaFallback){
-    setPlaylist(parseM3U(SJ_WNEWS_M3U), 'World News', autoplayFirst, { kind: 'builtin', label: 'World News', url: SJ_WNEWS_URL, snapshot: true, builtinVersion: SJ_BUILTIN_VERSION });
+    setPlaylist(parseM3U(BUILTIN_M3U), 'World News', autoplayFirst, { kind: 'builtin', label: 'World News', url: '', snapshot: true, builtinVersion: BUILTIN_VERSION });
     if (viaFallback){
       if (cspConnectBlocked){
         toast('Every download route, proxies included, was refused by the web link’s security policy — loaded the built-in copy of World News instead. This link loads live in the Muse app.', 8000);
@@ -3731,38 +2613,27 @@
   }
   function syncSourceUI(){
     var d = state.sourceDesc || {};
-    // Refresh re-fetches the current source's URL — offered for the
-    // built-in SJTV source (its Drive link) and for any playlist the
-    // user loaded by URL, because the online source is the sticky one.
+
     $('btnRefreshUrl').style.display = d.url ? '' : 'none';
-    // Source / rights note: ALWAYS shown in the footer. Earlier
-    // builds gated it on recognising the loaded source as the
-    // built-in World News list, and that test kept failing on
-    // long-lived saved states (iPhone app, GitHub page) even as it
-    // passed on fresh loads — so the note repeatedly went missing.
-    // The note is static footer text now: it is present in the
-    // markup with no hidden attribute and no script ever hides it.
+
     var note = $('srcNote');
     if (note) note.hidden = false;
   }
   $('btnBuiltinSJTV').addEventListener('click', function(){ loadBuiltinNews(true, false); });
   $('btnRefreshUrl').addEventListener('click', function(){
     var d = state.sourceDesc || {};
-    var url = d.url || SJ_WNEWS_URL;
-    // Re-fetch THIS source under its own identity: a user-loaded
-    // online playlist keeps its name and stays the sticky source.
-    // Only the built-in source refreshes into its online (Drive) form.
+    var url = d.url;
+    if (!url) return;
+
     var label = d.label || 'World News';
     var kind = d.kind === 'builtin' ? 'url' : (d.kind || 'url');
     fetchPlaylist(url, label, { kind: kind, label: label, url: url });
   });
 
-  /* ============ Saved lists (built from favorites) ============ */
   function renderSavedLists(){
     var box = $('savedLists');
     if (!box) return;
-    // The Saved Lists section itself is always visible — it holds the
-    // built-in SJTV entry; this renders only the user's own saved lists.
+
     if (!state.savedLists.length){ box.innerHTML = ''; return; }
     box.innerHTML = state.savedLists.map(function(l, i){
       var count = l.channels && l.channels.length ? l.channels.length : (l.count || 0);
@@ -3787,15 +2658,10 @@
       var sl = state.savedLists[parseInt(load.getAttribute('data-load'), 10)];
       if (!sl) return;
       if (sl.channels && sl.channels.length){
-        // A saved list plays from its stored copy — instantly, with no
-        // network fetch and no proxy walk. The entry's URL stays in
-        // the source desc so "Refresh from URL" can still pull a
-        // fresh copy from the online source when asked.
+
         setPlaylist(sl.channels.slice(), sl.name, true, { kind: 'saved', label: sl.name, url: sl.url || '' });
       } else if (sl.url){
-        // Entry saved before the channel copy was kept (channels:
-        // null): load it from its URL this once and cache the result,
-        // so every later tap plays the saved copy like the others.
+
         fetchPlaylist(sl.url, sl.name, { kind: 'url', label: sl.name, url: sl.url }, true, {
           onSuccess: function(chans){
             var idx = state.savedLists.indexOf(sl);
@@ -3884,24 +2750,8 @@
     ta.remove();
   }
 
-  /* ============ Boot autoplay — fresh page load ============
-     Called from init when a last-played channel was restored from a
-     previous session, and on a first-ever load for the built-in
-     list's first channel. Loads the channel through the normal
-     playChannel engine and starts it MUTED — the one start every
-     browser's autoplay policy permits on a cold launch with no user
-     gesture — so the video is already loading / playing when the app
-     opens. The Tap-for-sound pill (phase 3) then offers sound with
-     one tap; if even muted autoplay is refused, the rejection path
-     in onPlayRejected ends at the tap-to-play overlay. */
   function bootAutoplay(){
-    // Launch ALWAYS loads a video muted — the last-played channel
-    // when there is one, otherwise the first channel of the loaded
-    // list. Earlier, several restore paths (no last channel, legacy
-    // source, cache-dropped source) returned here with state.now
-    // unset and simply never started anything, so the app opened on
-    // a "press play" frame. Pick the first channel instead of
-    // giving up.
+
     if (!state.channels.length && state.allChannels.length) state.channels = state.allChannels;
     if (!state.now){
       if (!state.channels.length) return;
@@ -3911,7 +2761,7 @@
     }
     var idx = indexOfUrl(state.channels, state.now.url);
     if (idx < 0){
-      // The restored channel lives in the other view (All ⇄ Favorites).
+
       setView(state.view === 'favs' ? 'all' : 'favs');
       idx = indexOfUrl(state.channels, state.now.url);
     }
@@ -3920,53 +2770,21 @@
       state.now = state.channels[0];
       idx = 0;
     }
-    // Muted FIRST, on purpose. The previous sound-first attempt was
-    // always refused on a cold launch (autoplay policy: no gesture,
-    // no sound) — and it actively wedged the first load: its play()
-    // promise stayed pending while the slow stream loaded, so
-    // attemptPlay's playPending gate swallowed every retry AND the
-    // user's first press on "tap to play" (only the second press,
-    // after the promise finally settled, issued a real play()); and
-    // its rejection re-attached the source from scratch for the
-    // muted fallback, discarding whatever had already buffered.
-    // Going straight to the permitted muted start removes the whole
-    // chain: no doomed promise, no re-attach, video starts at launch.
+
     boot.phase = 2;
     boot.muted = true;
     boot.launching = true;
-    // Muted in every form the platform checks before the source
-    // starts — the property, the default, and the attribute: some
-    // webviews only honour defaultMuted / the attribute for their
-    // autoplay decision, and a start they don't count as muted is
-    // refused without a gesture.
+
     try { video.defaultMuted = true; } catch(e){}
     try { video.setAttribute('muted', ''); } catch(e){}
-    video.muted = true; // muted before the source starts — required for the muted attempt to count
-    // Same belt-and-braces for the other two WebKit autoplay inputs:
-    // playsinline as property + attribute (a webview that drops the
-    // markup attribute would otherwise try to force fullscreen /
-    // refuse inline autoplay), and preload="auto" so iOS Safari
-    // actually fetches the stream at launch instead of throttling a
-    // programmatic source until the first tap.
+    video.muted = true;
+
     try { video.playsInline = true; } catch(e){}
     try { video.setAttribute('playsinline', ''); } catch(e){}
     try { video.preload = 'auto'; } catch(e){}
     playLog('boot autoplay: starting channel "' + state.now.name + '" muted on launch');
     playChannel(idx);
-    // Launch retry ladder for the muted start itself: some webviews
-    // drop a play() issued before the stream's first data has
-    // arrived, leaving the element paused with a pending / settled
-    // attempt and no error. Re-issue the MUTED play on the same
-    // load — no reload, no unmute — until the boot stream is
-    // actually playing. The old ladder stopped after two shots
-    // (1.2s / 3s); on a phone connection the first frame of a live
-    // stream routinely takes longer than that, and once the ladder
-    // ended nothing ever pressed play again — the launch sat paused
-    // behind the play button until a tap. The ladder now keeps a
-    // gentle 2s pressure for up to 20s, stopping the moment
-    // playback starts, the boot ends, the user pauses or switches,
-    // or the tap-to-play overlay takes over (autoplay refused
-    // outright — retrying cannot change that verdict).
+
     var bootSeq = playSeq;
     var bootRetryAt = 0;
     var bootRetryTimer = setInterval(function(){
@@ -3980,16 +2798,7 @@
       playPending = false; playPendingAt = 0;
       attemptPlay(playSeq, 'boot-muted-retry@' + bootRetryAt + 'ms');
     }, 2000);
-    // Guaranteed escape hatch for a refusal that never surfaces as a
-    // rejection (WebKit can leave the start pending indefinitely —
-    // no NotAllowedError for onPlayRejected to turn into the overlay):
-    // if the boot stream still hasn't started seconds after the
-    // native stall re-kick (6s) had its chance, put the tap-to-play
-    // overlay up so the launch never sits on an unexplained frozen
-    // frame — its tap issues play() inside the gesture, the one
-    // start every policy honours. A stream that starts before the
-    // deadline (or after, via the 'playing' listener's hideTapPlay)
-    // never leaves the overlay standing.
+
     setTimeout(function(){
       if (bootSeq !== playSeq || state.userPaused || boot.phase !== 2) return;
       if (isPlaying() || !video.paused || tapPlayVisible()) return;
@@ -3998,25 +2807,16 @@
     }, 6500);
   }
 
-  /* ============ Init — restore exactly what was chosen last time ============ */
   video.volume = 0.9;
-  // The launch start is muted: set it on the element before ANY
-  // source is attached, in property and default form, so the
-  // browser's autoplay decision (made when the source starts)
-  // always sees a muted player.
+
   try { video.defaultMuted = true; } catch(e){}
   video.muted = true;
-  video.disablePictureInPicture = false; // iOS automatic PiP must not be blocked
+  video.disablePictureInPicture = false;
   var saved = loadState();
   if (saved){
     if (Array.isArray(saved.favorites)) state.favorites = saved.favorites;
     if (Array.isArray(saved.savedLists)) state.savedLists = saved.savedLists;
-    // Bloomberg migration on restored state: rewrite any stored
-    // bare-host Bloomberg URL to www, and move an entry still pointing
-    // at the old EU feed (eu.m3u8) to the new www US feed — a favorite
-    // stored under the old URL follows to the new one instead of being
-    // lost, and favorites are deduped by URL afterwards so the move
-    // can't leave Bloomberg listed twice.
+
     migrateChannelList(state.favorites);
     state.savedLists.forEach(function(l){ migrateChannelList(l && l.channels); });
     if (saved.nowUrl) saved.nowUrl = migrateChannelUrl(saved.nowUrl);
@@ -4028,71 +2828,42 @@
   }
   renderSavedLists();
 
-  /* Migration: the Starter list and the iptv-org world list no longer
-     exist. A stored state still pointing at either one silently moves
-     to the built-in SJTV source — favorites, saved lists and all other
-     stored data above are kept untouched; storage is not wiped. */
-  // Keep the Saved Lists chip count in sync with the actual built-in list
   try {
-    var builtinCountForChip = parseM3U(SJ_WNEWS_M3U).length;
+    var builtinCountForChip = parseM3U(BUILTIN_M3U).length;
     var chipBtn = $('btnBuiltinSJTV');
     if (chipBtn) chipBtn.textContent = 'World News · ' + builtinCountForChip + ' channels · Built-in';
   } catch(e){}
 
   var savedDesc = (saved && saved.sourceDesc) ? saved.sourceDesc : null;
-  /* Rename migration: the built-in list was renamed from "SJTV" to
-     "World News". A stored source still carrying the old name follows —
-     the built-in snapshot itself, and its online form after a Refresh
-     (kind 'url' but still the built-in link). Matched on the built-in
-     identity / URL so a user's own list named "SJTV" is never touched.
-     Persisted immediately, like the snapshot upgrade below. */
+  if (savedDesc && (savedDesc.kind === 'builtin' || savedDesc.snapshot === true)) savedDesc.url = '';
+
   if (savedDesc && savedDesc.label === 'SJTV' &&
-      (savedDesc.kind === 'builtin' || savedDesc.snapshot === true ||
-       savedDesc.url === SJ_WNEWS_URL)){
+      (savedDesc.kind === 'builtin' || savedDesc.snapshot === true)){
     savedDesc.label = 'World News';
     try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e){}
   }
-  // Built-in snapshot refresh: if the stored list is the previous built-in
-  // SJTV snapshot, replace it with the current built-in list (v13: 26
-  // channels — CNBC UK's group "Business News;News" simplified to
-  // "Business News" 2026-10-30; v12: group "Business" renamed to
-  // "Business News" 2026-10-30;
-  // v11: i24 News added 2026-10-30 next to Al Arabiya English
-  // on its iptv-org feed, and FOX LOCAL Washington DC removed the
-  // same day (froze after ~10s); CBC News added 2026-10-26 on its
-  // iptv-org feed; earlier removals and the Newsy / Cheddar News /
-  // ABC News Live (Pluto AVC) additions stand as before)
-  // while preserving favorites, saved lists and
-  // last-played channel (nowUrl) which live outside the channel array.
-  // Keyed to the built-in source identity + version marker.
+
   if (saved && savedDesc && Array.isArray(saved.channels) && saved.channels.length){
-    // Built-in identity comes ONLY from the source kind / snapshot
-    // flag the built-in loader itself writes. A playlist the user
-    // loaded by URL — even the built-in list's Drive link refreshed into
-    // kind 'url', and even if it shares channels with the snapshot —
-    // is an ONLINE source: the snapshot upgrade below must never
-    // replace it with the built-in list.
+
     var isBuiltinIdentity = savedDesc.kind === 'builtin' || savedDesc.snapshot === true;
     if (isBuiltinIdentity){
       var storedBuiltinVersion = savedDesc.builtinVersion || savedDesc.snapshotVersion || 0;
       var hasNewsyStored = saved.channels.some(function(c){ return c && c.url === NEWSY_URL; });
       var hasCheddarStored = saved.channels.some(function(c){ return c && c.url === CHEDDAR_URL; });
-      var freshBuiltin = parseM3U(SJ_WNEWS_M3U);
-      if (!hasNewsyStored || !hasCheddarStored || storedBuiltinVersion !== SJ_BUILTIN_VERSION || saved.channels.length !== freshBuiltin.length){
+      var freshBuiltin = parseM3U(BUILTIN_M3U);
+      if (!hasNewsyStored || !hasCheddarStored || storedBuiltinVersion !== BUILTIN_VERSION || saved.channels.length !== freshBuiltin.length){
         saved.channels = freshBuiltin;
-        savedDesc.builtinVersion = SJ_BUILTIN_VERSION;
-        if (saved.sourceDesc) saved.sourceDesc.builtinVersion = SJ_BUILTIN_VERSION;
-        // Persist the upgraded snapshot immediately so the next open
-        // already sees 26 channels even if this session never plays.
+        savedDesc.builtinVersion = BUILTIN_VERSION;
+        if (saved.sourceDesc) saved.sourceDesc.builtinVersion = BUILTIN_VERSION;
+
         try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e){}
       }
     }
   }
   if (saved && savedDesc && savedDesc.kind === 'builtin' && !Array.isArray(saved.channels)){
-    // Cache was dropped for quota — ensure version is current so the
-    // rebuild branch below loads the new snapshot and persists the marker.
-    savedDesc.builtinVersion = SJ_BUILTIN_VERSION;
-    if (saved.sourceDesc) saved.sourceDesc.builtinVersion = SJ_BUILTIN_VERSION;
+
+    savedDesc.builtinVersion = BUILTIN_VERSION;
+    if (saved.sourceDesc) saved.sourceDesc.builtinVersion = BUILTIN_VERSION;
   }
   var legacySource = !!savedDesc && (savedDesc.kind === 'starter' || savedDesc.kind === 'world' ||
     savedDesc.label === 'Starter list' || savedDesc.label === 'iptv-org world news');
@@ -4100,9 +2871,7 @@
   if (legacySource){
     syncFavUI();
     loadBuiltinNews(false, false);
-    // Launch loads a video muted here too (last channel when it is
-    // in the built-in list, otherwise the first channel) — this
-    // migration path used to open on a "tap a channel" frame.
+
     if (saved && saved.nowUrl){
       var li = indexOfUrl(state.allChannels, saved.nowUrl);
       if (li >= 0){ state.now = state.allChannels[li]; state.index = li; updateNowPlaying(); }
@@ -4111,10 +2880,10 @@
   } else if (saved && Array.isArray(saved.channels) && saved.channels.length){
     var desc = saved.sourceDesc || { kind: 'custom', label: 'Saved playlist', url: '' };
     state.allChannels = saved.channels;
-    migrateChannelList(state.allChannels); // same Bloomberg rewrite/migration for the cached playlist
+    migrateChannelList(state.allChannels);
     state.source = desc.label;
     state.sourceDesc = desc;
-    // The channel that was playing decides which view makes sense to restore.
+
     var nowCh = null;
     if (saved.nowUrl){
       var ai = indexOfUrl(state.allChannels, saved.nowUrl);
@@ -4127,10 +2896,7 @@
     syncViewTabs();
     buildGroupFilter();
     renderList();
-    // No last-played channel restored (e.g. a list was loaded but
-    // nothing was ever played): launch still loads a video muted —
-    // the first channel of the restored list — instead of opening
-    // on a "tap a channel to start" frame.
+
     if (!nowCh && state.channels.length) nowCh = state.channels[0];
     if (nowCh){
       state.now = nowCh;
@@ -4139,18 +2905,10 @@
     }
     syncFavUI();
     syncSourceUI();
-    // Launch: start the restored channel (or the first channel)
-    // automatically, muted — the Tap-for-sound pill offers sound.
+
     if (nowCh) bootAutoplay();
     setTimeout(function(){ if (state.index < 0 || !video.currentSrc) showStageMsg('', false); }, 9000);
-    // Sticky online source: a playlist loaded by URL is re-fetched on
-    // open, so the list is fresh from its source rather than only the
-    // cached copy restored above. The refresh runs in the background —
-    // the restored list and channel stay on screen — and if every
-    // route fails, the cached copy (this same source's last good
-    // load) stays, with a notice. The built-in snapshot is a fallback
-    // for when there is no online source or no cached copy; it never
-    // replaces an online source here.
+
     if (desc.kind === 'url' && desc.url){
       var refreshLabel = desc.label;
       fetchPlaylist(desc.url, refreshLabel, desc, false, {
@@ -4161,8 +2919,7 @@
       });
     }
   } else if (saved && saved.sourceDesc && saved.sourceDesc.kind === 'builtin'){
-    // The channel cache didn't fit in browser storage — the built-in
-    // snapshot needs no network to restore, so rebuild it locally.
+
     syncFavUI();
     loadBuiltinNews(false, false);
     if (saved.nowUrl){
@@ -4173,21 +2930,16 @@
         updateNowPlaying();
       }
     }
-    // Muted launch load whether or not a last channel survived —
-    // bootAutoplay falls back to the first channel.
+
     bootAutoplay();
   } else if (saved && saved.sourceDesc && saved.sourceDesc.url){
-    // The channel cache didn't fit in browser storage — refetch the same
-    // source the user chose (never silently switch to a different list).
-    // Only if the online source fails on EVERY route does the built-in
-    // list step in — as a fallback, announced in a toast, not a
-    // silent swap.
+
     syncFavUI();
     var refetchDesc = saved.sourceDesc;
     fetchPlaylist(refetchDesc.url, refetchDesc.label, refetchDesc, false, {
+      silentProxySkip: true,
       onSuccess: function(){
-        // The refetched list is in: launch-load its first channel
-        // muted, like every other launch path.
+
         bootAutoplay();
       },
       onFail: function(){
@@ -4196,11 +2948,7 @@
       }
     });
   } else {
-    // First-ever load (or nothing restorable): default to the built-in
-    // World News list AND start its first channel through the same
-    // muted boot ladder a restored session uses for its last channel —
-    // the video loads when the app launches instead of waiting behind
-    // a "tap a channel to start" frame.
+
     loadBuiltinNews(false, false);
     if (state.allChannels.length){
       state.now = state.allChannels[0];
