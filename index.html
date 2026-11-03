@@ -1796,8 +1796,9 @@
       REMOTE_NEXT_KEYS.indexOf(name) >= 0 || REMOTE_PREV_KEYS.indexOf(name) >= 0;
 
     var tag = (e.target && e.target.tagName) || '';
-    if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && !isMediaKey &&
-        (chanPanelOpen() || document.querySelector('.modal.on'))) return;
+    var inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
+      !!(e.target && e.target.isContentEditable);
+    if (inField && !isMediaKey) return;
     function handled(){ e.__sjtvRemoteHandled = true; try { e.preventDefault(); } catch(err){} }
     var via = 'key ' + (name || key || code || ('#' + (e.keyCode || e.which || '?')));
     if (name === 'MediaPlay'){ handled(); resumeRemote(); }
