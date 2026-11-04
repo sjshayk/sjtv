@@ -1878,6 +1878,69 @@
     setTimeout(checkStuck, 60);
   });
 
+  // Auto-fullscreen on landscape rotation (touch / iPhone):
+  // While a channel is playing, turning the phone to landscape hands the
+  // video to native fullscreen (webkitEnterFullscreen on iPhone, standard
+  // fullscreen elsewhere). Turning back to portrait exits only when
+  // fullscreen was auto-entered here. A latch stops re-entering after the
+  // viewer manually exits (Done) while still holding the phone landscape;
+  // it resets on the next return to portrait.
+  var autoFsEntered = false;
+  var autoFsLatch = false;
+  var autoFsTimer = null;
+  function isLandscapeNow(){
+    try {
+      if (window.screen && screen.orientation && screen.orientation.type)
+        return screen.orientation.type.indexOf('landscape') === 0;
+    } catch(e){}
+    try {
+      if (window.matchMedia) return window.matchMedia('(orientation: landscape)').matches;
+    } catch(e){}
+    return window.innerWidth > window.innerHeight;
+  }
+  function isTouchDeviceForAutoFs(){
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+    } catch(e){}
+    return /iPhone|iPod|iPad/i.test(navigator.userAgent || '') || ('ontouchstart' in window && window.innerWidth < 1100);
+  }
+  function handleAutoFsOrientation(){
+    if (!isLandscapeNow()){
+      autoFsLatch = false;
+      if (autoFsEntered && fsIsActive()){
+        autoFsEntered = false;
+        exitFullscreen();
+      } else {
+        autoFsEntered = false;
+      }
+      return;
+    }
+    if (autoFsLatch) return;
+    if (fsIsActive()){ autoFsLatch = true; return; }
+    if (!state.now || video.paused || video.ended) return;
+    if (!isTouchDeviceForAutoFs()) return;
+    autoFsLatch = true;
+    autoFsEntered = true;
+    enterFullscreen();
+    setTimeout(function(){ if (!fsIsActive()) autoFsEntered = false; }, 900);
+  }
+  function scheduleAutoFsCheck(){
+    clearTimeout(autoFsTimer);
+    autoFsTimer = setTimeout(handleAutoFsOrientation, 350);
+  }
+  window.addEventListener('orientationchange', scheduleAutoFsCheck);
+  if (window.screen && screen.orientation && typeof screen.orientation.addEventListener === 'function'){
+    try { screen.orientation.addEventListener('change', scheduleAutoFsCheck); } catch(e){}
+  }
+  window.addEventListener('resize', function(){
+    if (isLandscapeNow() && state.now && !video.paused && !video.ended && !fsIsActive() && !autoFsLatch && isTouchDeviceForAutoFs()){
+      scheduleAutoFsCheck();
+    }
+  });
+  video.addEventListener('webkitendfullscreen', function(){ autoFsEntered = false; });
+  document.addEventListener('fullscreenchange', function(){ if (!fsIsActive()) autoFsEntered = false; });
+  document.addEventListener('webkitfullscreenchange', function(){ if (!fsIsActive()) autoFsEntered = false; });
+
   function pipIsActive(){
     if (document.pictureInPictureElement) return true;
     return video.webkitPresentationMode === 'picture-in-picture';
