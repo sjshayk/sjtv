@@ -93,29 +93,6 @@
   .pagefoot a:hover{text-decoration:underline}
   .pagefoot a svg{width:16px; height:16px; flex:none}
 
-  .election-banner{
-    display:flex; align-items:center; gap:12px;
-    background:linear-gradient(90deg,#0b1e3f 0%,#3a1e4d 52%,#a31621 100%);
-    color:#fff; border-radius:12px; padding:10px 12px 10px 14px; margin-bottom:10px;
-    box-shadow:var(--shadow);
-  }
-  .election-banner[hidden]{display:none}
-  .election-banner .eb-tag{
-    flex:none; font-size:10.5px; font-weight:800; letter-spacing:.16em;
-    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.45);
-    border-radius:5px; padding:3px 6px; line-height:1;
-  }
-  .election-banner .eb-text{min-width:0; flex:1; line-height:1.3}
-  .election-banner .eb-line1{font-size:14.5px; font-weight:500}
-  .election-banner .eb-line1 b{font-weight:800}
-  .election-banner .eb-line2{font-size:12.5px; color:rgba(255,255,255,.82); margin-top:1px}
-  .election-banner .eb-close{
-    flex:none; width:32px; height:32px; border-radius:50%; border:0;
-    background:transparent; color:#fff; font-size:20px; line-height:1;
-    display:inline-flex; align-items:center; justify-content:center; padding:0;
-  }
-  .election-banner .eb-close:active{background:rgba(255,255,255,.18)}
-
   .layout{display:grid; grid-template-columns:1fr; gap:10px; align-items:start}
   .layout>*{min-width:0}
 
@@ -315,15 +292,6 @@
     </button>
   </div>
 
-  <div class="election-banner" id="electionBanner" role="note" aria-label="Election Night coverage">
-    <span class="eb-tag">TONIGHT</span>
-    <div class="eb-text">
-      <div class="eb-line1"><b>Election Night LIVE</b> — every call, every state, one player.</div>
-      <div class="eb-line2">Watch the midterms live on SJTV.</div>
-    </div>
-    <button class="eb-close" id="electionBannerClose" type="button" aria-label="Dismiss Election Night banner">&times;</button>
-  </div>
-
   <div class="layout">
 
     <section class="panel" aria-label="Player">
@@ -506,14 +474,6 @@
 </div>
 
 <div class="toast" id="toast" role="status"></div>
-
-<script>
-(function(){
-  var close = document.getElementById('electionBannerClose');
-  var banner = document.getElementById('electionBanner');
-  if (close && banner) close.addEventListener('click', function(){ banner.hidden = true; });
-})();
-</script>
 
 <script>
 (function(){
