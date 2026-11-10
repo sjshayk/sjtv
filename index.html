@@ -63,6 +63,31 @@
 
   .wrap{position:relative; width:100%; max-width:480px; margin:0 auto; padding:0 clamp(10px,2.5vw,18px) 14px}
 
+  /* Fixed frame, scrolling rows: the page is exactly one screen tall, a
+     single column. The header + player block (pinned top), the
+     now-playing channel-name bar, the All/Favorites tabs, the search box
+     and the group filter never move — only the channel rows scroll,
+     inside a window that fills the height left between that fixed block
+     and the footer. */
+  html,body{height:100%}
+  body{overflow:hidden}
+  .wrap{height:100vh; height:100dvh; display:flex; flex-direction:column}
+  .pinned-top{flex:none}
+  .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+  .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+  .chan-now{flex:none}
+  .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
+  .pagefoot{flex:none}
+  @media (max-height:620px){
+    /* Very short screens (landscape phones): let the page flow as before
+       so the fixed block can never squeeze the rows out of existence. */
+    body{overflow:visible}
+    .wrap{height:auto; display:block}
+    .layout{display:block}
+    .chan-section{display:block}
+    .chan-panel-inline .list{flex:none; max-height:min(480px,55dvh)}
+  }
+
   .topbar{display:flex; align-items:center; gap:12px; flex-wrap:nowrap; margin-bottom:8px}
   .live-dot{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; letter-spacing:.14em; text-transform:uppercase}
   .live-dot i{width:9px;height:9px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 0 rgba(229,72,77,.5); animation:pulse 1.8s infinite}
@@ -93,7 +118,6 @@
   .pagefoot a:hover{text-decoration:underline}
   .pagefoot a svg{width:16px; height:16px; flex:none}
 
-  .layout{display:block}
   .layout>*{min-width:0}
   .layout>*+*{margin-top:10px}
 
@@ -199,10 +223,10 @@
   .chan-now .cs-meta{min-width:0; flex:1}
   .cs-name{display:block; font-size:17px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .cs-hint{display:block; font-size:12.5px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .chan-panel-inline{display:flex; flex-direction:column; padding:8px 12px 12px}
-  .chan-panel-inline .list{max-height:none; overflow:visible; padding-right:0}
-  .chan{scroll-margin-top:332px}
-  @media (max-width:380px){ .chan{scroll-margin-top:276px} }
+  .chan-panel-inline{display:flex; flex-direction:column; padding:8px 12px 12px; flex:1 1 auto; min-height:0}
+  .chan-panel-inline .list{flex:1 1 0%; min-height:0; max-height:none; overflow-x:hidden; overflow-y:auto; padding-right:2px; -webkit-overflow-scrolling:touch}
+  .chan{scroll-margin-top:6px}
+  @media (max-width:380px){ .chan{scroll-margin-top:6px} }
 
   .avatar{width:46px;height:46px;border-radius:10px; background:var(--panel2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; overflow:hidden; flex:none; position:relative}
   .avatar .ini{font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:19px; color:var(--muted)}
@@ -831,8 +855,8 @@
   }
   window.addEventListener('resize', fitChanPanel);
   function scrollListToPlaying(){
-    // The list flows with the page now: bring the playing row into view
-    // below the pinned player (rows carry a scroll-margin for the player).
+    // Only the rows scroll, inside their own window: bring the playing
+    // row into view within that window (rows carry a small scroll-margin).
     var cur = chanList.querySelector('.chan.playing');
     if (!cur) return;
     try { cur.scrollIntoView({ block: 'start', behavior: 'auto' }); }
