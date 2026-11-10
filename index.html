@@ -61,7 +61,7 @@
   button,input,select,textarea,a,.chan{touch-action:manipulation}
   svg{display:block}
 
-  .wrap{width:100%; max-width:480px; margin:0 auto; padding:clamp(8px,2vw,14px) clamp(10px,2.5vw,18px) 14px}
+  .wrap{position:relative; width:100%; max-width:480px; margin:0 auto; padding:0 clamp(10px,2.5vw,18px) 14px}
 
   .topbar{display:flex; align-items:center; gap:12px; flex-wrap:nowrap; margin-bottom:8px}
   .live-dot{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; letter-spacing:.14em; text-transform:uppercase}
@@ -93,8 +93,37 @@
   .pagefoot a:hover{text-decoration:underline}
   .pagefoot a svg{width:16px; height:16px; flex:none}
 
-  .layout{display:grid; grid-template-columns:1fr; gap:10px; align-items:start}
+  .layout{display:block}
   .layout>*{min-width:0}
+  .layout>*+*{margin-top:10px}
+
+  /* Pinned top block: the header row (playlist selector, brightness and
+     Menu button) and the video player pin together at the top of the
+     screen as one solid block. Only the channel list below scrolls, and
+     it passes underneath this block — the solid background and stacking
+     keep rows from ghosting through or over it. */
+  .pinned-top{
+    position:sticky; top:0; z-index:46;
+    background:var(--bg);
+    padding-top:calc(var(--stuck-top) + clamp(8px,2vw,14px));
+    padding-bottom:10px;
+  }
+  .player-panel{position:relative; z-index:1}
+
+  /* Top-right menu: button in the header, dropdown panel holding the playlist sections */
+  #menuBtn{flex:none; height:38px; padding:0 13px; border-radius:999px; gap:7px}
+  #menuBtn svg{width:18px; height:18px}
+  .menu-panel{
+    position:absolute; top:calc(var(--stuck-top) + 54px); left:0; right:0; z-index:48; margin-top:0;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:14px 14px 4px; max-height:calc(100dvh - 72px); overflow-y:auto; overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .menu-panel[hidden]{display:none}
+  .menu-panel .side{gap:0}
+  .menu-panel .panel{border:0; box-shadow:none; background:transparent; border-radius:0}
+  .menu-panel .panel-pad{padding:2px 2px 14px}
+  .menu-panel .side section + section{border-top:1px solid var(--line); padding-top:14px}
 
   .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
   .panel-pad{padding:11px 12px}
@@ -165,27 +194,15 @@
   .announce .num{font-family:"Barlow Condensed",sans-serif; font-size:15px; letter-spacing:.22em; font-weight:600; color:#ffb3b5; text-transform:uppercase}
   .announce .name{font-family:"Barlow Condensed",sans-serif; font-size:clamp(30px,5.2vw,52px); line-height:1.02; font-weight:700; text-transform:uppercase; letter-spacing:.01em}
 
-  .chan-select{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); color:var(--text); padding:9px 14px; min-height:54px}
-  .chan-select:active{background:var(--panel2)}
-  .chan-select .cs-meta{min-width:0; flex:1}
+  /* Channel list: always visible directly below the player */
+  .chan-now{display:flex; align-items:center; gap:10px; padding:11px 14px 3px}
+  .chan-now .cs-meta{min-width:0; flex:1}
   .cs-name{display:block; font-size:17px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .cs-hint{display:block; font-size:12.5px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .chan-select .cs-chev{width:22px; height:22px; flex:none; color:var(--muted); transition:transform .2s}
-  .chan-select.open .cs-chev{transform:rotate(180deg)}
-  @media (prefers-reduced-motion: reduce){ .chan-select .cs-chev{transition:none} }
-
-  .chan-dd{position:relative}
-  .chan-panel{
-    position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:30;
-    background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    box-shadow:var(--shadow); padding:12px 14px 14px;
-    overscroll-behavior:contain;
-    display:flex; flex-direction:column;
-    max-height:min(600px, calc(100dvh - 24px));
-    overflow:hidden;
-  }
-  .chan-panel[hidden]{display:none}
-  .chan-panel .list{flex:1 1 auto; min-height:0; max-height:none}
+  .chan-panel-inline{display:flex; flex-direction:column; padding:8px 12px 12px}
+  .chan-panel-inline .list{max-height:none; overflow:visible; padding-right:0}
+  .chan{scroll-margin-top:332px}
+  @media (max-width:380px){ .chan{scroll-margin-top:276px} }
 
   .avatar{width:46px;height:46px;border-radius:10px; background:var(--panel2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; overflow:hidden; flex:none; position:relative}
   .avatar .ini{font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:19px; color:var(--muted)}
@@ -283,6 +300,7 @@
 <body>
 <div class="wrap">
 
+  <div class="pinned-top">
   <div class="topbar">
     <span class="live-dot"><i></i> SJTV LIVE</span>
     <span class="pill" id="srcPill">World News</span>
@@ -290,11 +308,13 @@
     <button class="btn" id="wakeBtn" type="button" title="Keep the screen on" aria-label="Keep screen on">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
     </button>
+    <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel" title="Menu — playlists, saved lists and favorites">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      Menu
+    </button>
   </div>
 
-  <div class="layout">
-
-    <section class="panel" aria-label="Player">
+    <section class="panel player-panel" aria-label="Player">
       <div class="stage-wrap" id="stageWrap">
       <div class="stage controls-on" id="stage" tabindex="-1">
         <video id="video" playsinline webkit-playsinline autoplay muted preload="auto"></video>
@@ -340,31 +360,9 @@
       </div>
       </div>
 
-      <div class="chan-dd">
-      <button class="chan-select" id="chanSelect" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="chanPanel">
-        <span class="cs-meta">
-          <span class="cs-name" id="chanSelectName">Select a channel</span>
-          <span class="cs-hint" id="chanSelectHint">Tap to browse channels</span>
-        </span>
-        <svg class="cs-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-
-      <div class="chan-panel" id="chanPanel" hidden>
-        <div class="viewtabs" role="tablist" aria-label="Channel list view">
-          <button type="button" id="tabAll" class="active" role="tab">All channels</button>
-          <button type="button" id="tabFavs" role="tab">★ Favorites (0)</button>
-        </div>
-        <div class="tools">
-          <input type="search" id="searchInput" placeholder="Search channels…" aria-label="Search channels" />
-          <select id="groupSelect" aria-label="Filter by group"><option value="">All groups</option></select>
-        </div>
-        <div class="list" id="chanList"></div>
-      </div>
-      </div>
-
     </section>
-
-    <aside class="side">
+    <div class="menu-panel" id="menuPanel" hidden>
+    <aside class="side menu-side">
       <section class="panel panel-pad loadpanel" aria-label="Load playlist">
         <h2>Add your Playlist</h2>
         <div class="urlrow">
@@ -411,6 +409,32 @@
       </section>
 
     </aside>
+    </div>
+  </div>
+
+  <div class="layout">
+    <section class="panel chan-section" aria-label="Channels">
+      <div class="chan-now">
+        <span class="cs-meta">
+          <span class="cs-name" id="chanSelectName">Select a channel</span>
+          <span class="cs-hint" id="chanSelectHint">Choose a channel below to play it</span>
+        </span>
+      </div>
+
+      <div class="chan-panel-inline" id="chanPanel">
+        <div class="viewtabs" role="tablist" aria-label="Channel list view">
+          <button type="button" id="tabAll" class="active" role="tab">All channels</button>
+          <button type="button" id="tabFavs" role="tab">★ Favorites (0)</button>
+        </div>
+        <div class="tools">
+          <input type="search" id="searchInput" placeholder="Search channels…" aria-label="Search channels" />
+          <select id="groupSelect" aria-label="Filter by group"><option value="">All groups</option></select>
+        </div>
+        <div class="list" id="chanList"></div>
+      </div>
+
+    </section>
+
   </div>
 
   <footer class="pagefoot">
@@ -790,26 +814,15 @@
     return res;
   }
 
-  function chanPanelOpen(){ return !$('chanPanel').hidden; }
+  // The channel list is always visible below the player — there is no
+  // dropdown panel to open or close anymore. These helpers stay as no-ops
+  // so the existing call sites (channel tap, remote keys) keep working.
+  function chanPanelOpen(){ return true; }
 
-  function fitChanPanel(){
-    if (!chanPanelOpen()) return;
-    var dd = $('chanPanel').parentElement;
-    if (!dd) return;
-    var avail = window.innerHeight - dd.getBoundingClientRect().bottom - 10;
-    $('chanPanel').style.maxHeight = Math.max(220, Math.min(600, avail)) + 'px';
-  }
+  function fitChanPanel(){}
+
   function setChanPanel(open){
-    $('chanPanel').hidden = !open;
-    $('chanSelect').classList.toggle('open', open);
-    $('chanSelect').setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open){ fitChanPanel(); scrollListToPlaying(); }
-    else {
-
-      try { searchInput.blur(); } catch(e){}
-      try { groupSelect.blur(); } catch(e){}
-      focusStage();
-    }
+    if (open) scrollListToPlaying();
   }
 
   function focusStage(){
@@ -818,13 +831,13 @@
   }
   window.addEventListener('resize', fitChanPanel);
   function scrollListToPlaying(){
-
+    // The list flows with the page now: bring the playing row into view
+    // below the pinned player (rows carry a scroll-margin for the player).
     var cur = chanList.querySelector('.chan.playing');
     if (!cur) return;
-    var lr = chanList.getBoundingClientRect(), cr = cur.getBoundingClientRect();
-    chanList.scrollTop += (cr.top - lr.top) - 6;
+    try { cur.scrollIntoView({ block: 'start', behavior: 'auto' }); }
+    catch(e){ try { cur.scrollIntoView(); } catch(e2){} }
   }
-  $('chanSelect').addEventListener('click', function(){ setChanPanel(!chanPanelOpen()); });
 
   function renderList(){
     var idxs = filteredIndices();
@@ -1483,7 +1496,7 @@
     if (!ch) return;
     var n = state.channels.length;
     $('chanSelectName').textContent = ch.name;
-    $('chanSelectHint').textContent = (state.index >= 0 && n ? 'Channel ' + (state.index + 1) + ' of ' + n + ' · ' : '') + 'Tap to change channel';
+    $('chanSelectHint').textContent = (state.index >= 0 && n ? 'Channel ' + (state.index + 1) + ' of ' + n + ' · ' : '') + 'Now playing';
     $('miniName').textContent = ch.name;
     $('miniSub').textContent = (state.index >= 0 && n ? 'Channel ' + (state.index + 1) + ' of ' + n + '  ·  ' : '') + (ch.group || 'Live news');
     document.title = ch.name + ' — SJTV';
@@ -2102,6 +2115,36 @@
 
     if (e && e.__sjtvRemoteHandled) return;
     firstInteraction();
+  });
+
+  // Top-right Menu: opens the panel holding Add your Playlist, Saved Lists
+  // and Favorites Options. All controls inside keep their existing handlers.
+  var menuPanelEl = $('menuPanel'), menuBtnEl = $('menuBtn');
+  function setMenu(open){
+    if (!menuPanelEl || !menuBtnEl) return;
+    menuPanelEl.hidden = !open;
+    menuBtnEl.classList.toggle('active', open);
+    menuBtnEl.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open){ try { menuPanelEl.scrollTop = 0; } catch(e){} }
+  }
+  function closeMenu(){ setMenu(false); }
+  if (menuBtnEl) menuBtnEl.addEventListener('click', function(){ setMenu(menuPanelEl.hidden); });
+  document.addEventListener('pointerdown', function(e){
+    if (!menuPanelEl || menuPanelEl.hidden) return;
+    if (e.target && e.target.closest && e.target.closest('#menuPanel, #menuBtn')) return;
+    setMenu(false);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e && e.key === 'Escape' && menuPanelEl && !menuPanelEl.hidden) setMenu(false);
+  });
+  // Choosing something that loads or plays closes the menu so the player
+  // and channel list are visible again.
+  $('btnBuiltinSJTV').addEventListener('click', closeMenu);
+  $('btnViewFavs').addEventListener('click', closeMenu);
+  $('btnPaste').addEventListener('click', closeMenu);
+  $('btnFile').addEventListener('click', closeMenu);
+  $('savedLists').addEventListener('click', function(e){
+    if (e.target && e.target.closest && e.target.closest('[data-load]')) closeMenu();
   });
 
   var wakeLock = null;
