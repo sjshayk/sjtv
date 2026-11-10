@@ -2626,6 +2626,82 @@
     ta.remove();
   }
 
+  // Voice channel switching: ?channel= / ?list= link parameters, read once
+  // here at the top of the boot flow, before any autoplay runs.
+  var bootParams = (function(){
+    var out = { channel: '', list: '' };
+    try {
+      var search = window.location ? String(window.location.search || '') : '';
+      if (search){
+        if (window.URLSearchParams){
+          var usp = new URLSearchParams(search);
+          out.channel = usp.get('channel') || '';
+          out.list = usp.get('list') || '';
+        } else {
+          search.replace(/^\?/, '').split('&').forEach(function(pair){
+            if (!pair) return;
+            var eq = pair.indexOf('=');
+            var k = eq >= 0 ? pair.slice(0, eq) : pair;
+            var v = eq >= 0 ? pair.slice(eq + 1) : '';
+            try { k = decodeURIComponent(k.replace(/\+/g, ' ')); v = decodeURIComponent(v.replace(/\+/g, ' ')); } catch(e){}
+            if (k === 'channel') out.channel = v;
+            if (k === 'list') out.list = v;
+          });
+        }
+      }
+    } catch(e){}
+    out.channel = String(out.channel || '').trim();
+    out.list = String(out.list || '').trim();
+    return out;
+  })();
+
+  function normalizeChannelName(s){
+    return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function resolveBootChannel(){
+    var raw = bootParams.channel;
+    if (state.view !== 'all'){
+      state.view = 'all';
+      state.channels = state.allChannels;
+      syncSrcPill();
+      syncViewTabs();
+      buildGroupFilter();
+      renderList();
+    }
+    var list = state.channels;
+    var q = normalizeChannelName(raw);
+    var exact = [], partial = [];
+    if (q){
+      list.forEach(function(c, i){
+        var n = normalizeChannelName(c && c.name);
+        if (!n) return;
+        if (n === q) exact.push(i);
+        else if (n.indexOf(q) >= 0) partial.push(i);
+      });
+    }
+    var matches = exact.length ? exact : partial;
+    if (matches.length === 1){
+      var idx = matches[0];
+      state.now = list[idx];
+      state.index = idx;
+      updateNowPlaying();
+      bootAutoplay();
+      return;
+    }
+    if (matches.length > 1){
+      var names = matches.map(function(i){ return list[i].name; });
+      showStageMsg('Several channels match "' + raw + '": ' + names.join(', ') + ' — pick one from the channel list.', true);
+      return;
+    }
+    showStageMsg("Couldn't find '" + raw + "' in this playlist", true);
+  }
+
+  function bootPlay(){
+    if (bootParams.channel) resolveBootChannel();
+    else bootAutoplay();
+  }
+
   function bootAutoplay(){
 
     if (!state.channels.length && state.allChannels.length) state.channels = state.allChannels;
@@ -2704,6 +2780,16 @@
   }
   renderSavedLists();
 
+  var bootListEntry = null;
+  if (bootParams.list){
+    state.savedLists.forEach(function(l){
+      if (!bootListEntry && l && l.name && l.name.toLowerCase() === bootParams.list.toLowerCase()) bootListEntry = l;
+    });
+    if (!bootListEntry){
+      toast('No saved list named "' + bootParams.list + '" — staying on the current list.', 6000);
+    }
+  }
+
   var savedDesc = (saved && saved.sourceDesc) ? saved.sourceDesc : null;
   var isBuiltinSaved = !!savedDesc && (savedDesc.kind === 'builtin' || savedDesc.snapshot === true);
   if (isBuiltinSaved) savedDesc.url = BUILTIN_URL;
@@ -2753,7 +2839,7 @@
     syncFavUI();
     syncSourceUI();
 
-    if (nowCh) bootAutoplay();
+    if (nowCh) bootPlay();
     setTimeout(function(){ if (state.index < 0 || !video.currentSrc) showStageMsg('', false); }, 9000);
 
     if (desc.kind === 'url' && desc.url){
@@ -2770,11 +2856,39 @@
   var legacySource = !!savedDesc && (savedDesc.kind === 'starter' || savedDesc.kind === 'world' ||
     savedDesc.label === 'Starter list' || savedDesc.label === 'iptv-org world news');
 
-  if (legacySource){
+  if (bootListEntry){
+    syncFavUI();
+    if (bootListEntry.channels && bootListEntry.channels.length){
+      setPlaylist(bootListEntry.channels.slice(), bootListEntry.name, false, { kind: 'saved', label: bootListEntry.name, url: bootListEntry.url || '' });
+      bootPlay();
+    } else if (bootListEntry.url){
+      var bootListRef = bootListEntry;
+      fetchPlaylist(bootListEntry.url, bootListEntry.name, { kind: 'url', label: bootListEntry.name, url: bootListEntry.url }, false, {
+        onSuccess: function(chans){
+          var idx = state.savedLists.indexOf(bootListRef);
+          if (idx >= 0){
+            state.savedLists[idx].count = chans.length;
+            state.savedLists[idx].channels = chans.map(function(c){
+              return { name: c.name, url: c.url, logo: c.logo || '', group: c.group || 'News' };
+            });
+            renderSavedLists();
+            saveState();
+          }
+          bootPlay();
+        },
+        onFail: function(){
+          toast('Could not load “' + bootListRef.name + '” — every route failed.', 6000);
+          bootPlay();
+        }
+      });
+    } else {
+      bootPlay();
+    }
+  } else if (legacySource){
     syncFavUI();
     loadBuiltinNews(false, false, {
-      onSuccess: function(){ applySavedNow(saved); bootAutoplay(); },
-      onFail: function(){ applySavedNow(saved); bootAutoplay(); }
+      onSuccess: function(){ applySavedNow(saved); bootPlay(); },
+      onFail: function(){ applySavedNow(saved); bootPlay(); }
     });
   } else if (isBuiltinSaved && saved && Array.isArray(saved.channels) && saved.channels.length){
     syncFavUI();
@@ -2782,13 +2896,13 @@
       onSuccess: function(chans){
         setBuiltinChip(chans.length);
         applySavedNow(saved);
-        bootAutoplay();
+        bootPlay();
       },
       onFail: function(){
         if (builtinStale){
           showBuiltinFallback(false, false);
           applySavedNow(saved);
-          bootAutoplay();
+          bootPlay();
         } else {
           restoreSavedChannels(saved);
           setBuiltinChip(saved.channels.length);
@@ -2800,8 +2914,8 @@
   } else if (isBuiltinSaved){
     syncFavUI();
     loadBuiltinNews(false, false, {
-      onSuccess: function(){ applySavedNow(saved); bootAutoplay(); },
-      onFail: function(){ applySavedNow(saved); bootAutoplay(); }
+      onSuccess: function(){ applySavedNow(saved); bootPlay(); },
+      onFail: function(){ applySavedNow(saved); bootPlay(); }
     });
   } else if (saved && saved.sourceDesc && saved.sourceDesc.url){
 
@@ -2810,12 +2924,12 @@
     fetchPlaylist(refetchDesc.url, refetchDesc.label, refetchDesc, false, {
       onSuccess: function(){
 
-        bootAutoplay();
+        bootPlay();
       },
       onFail: function(){
         loadBuiltinNews(false, true, {
-          onSuccess: function(){ bootAutoplay(); },
-          onFail: function(){ bootAutoplay(); }
+          onSuccess: function(){ bootPlay(); },
+          onFail: function(){ bootPlay(); }
         });
       }
     });
@@ -2827,7 +2941,7 @@
           state.now = state.allChannels[0];
           state.index = 0;
           updateNowPlaying();
-          bootAutoplay();
+          bootPlay();
         }
       },
       onFail: function(){
@@ -2835,7 +2949,7 @@
           state.now = state.allChannels[0];
           state.index = 0;
           updateNowPlaying();
-          bootAutoplay();
+          bootPlay();
         }
       }
     });
