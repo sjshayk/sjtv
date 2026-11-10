@@ -31,27 +31,29 @@ https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playli
 https://tv-trtworld.medya.trt.com.tr/master.m3u8
 #EXTINF:-1 channel-number="16" tvg-id="AlArabiyaEnglish.sa@SD" tvg-logo="https://images.seeklogo.com/logo-png/22/1/al-arabiya-news-channel-logo-png_seeklogo-221044.png" group-title="World News",Al Arabiya English
 https://live.alarabiya.net/alarabiapublish/english/playlist_dvr.m3u8
-#EXTINF:-1 channel-number="17" tvg-id="i24NEWSEnglishWorld.il@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/LOGO_i24NEWS.png/960px-LOGO_i24NEWS.png" group-title="World News",i24 News
+#EXTINF:-1 channel-number="17" tvg-id="PressTV.ir@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Press_TV_logo.svg/960px-Press_TV_logo.svg.png" group-title="World News",Press TV
+https://live.presstv.co.uk/hls/presstv.m3u8
+#EXTINF:-1 channel-number="18" tvg-id="i24NEWSEnglishWorld.il@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/LOGO_i24NEWS.png/960px-LOGO_i24NEWS.png" group-title="World News",i24 News
 https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8
-#EXTINF:-1 channel-number="18" tvg-id="France24.fr@English" tvg-logo="https://iconape.com/wp-content/png_logo_vector/france-24-logo.png" group-title="World News",France 24
+#EXTINF:-1 channel-number="19" tvg-id="France24.fr@English" tvg-logo="https://iconape.com/wp-content/png_logo_vector/france-24-logo.png" group-title="World News",France 24
 https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8
-#EXTINF:-1 channel-number="19" tvg-id="RT.ru@SD" tvg-logo="https://cdn.imgbin.com/23/15/21/imgbin-rt-russia-google-news-whataboutism-russia-JmKqcZN1MCUwQpZVFE7abf5da.jpg" group-title="World News",RT
+#EXTINF:-1 channel-number="20" tvg-id="RT.ru@SD" tvg-logo="https://cdn.imgbin.com/23/15/21/imgbin-rt-russia-google-news-whataboutism-russia-JmKqcZN1MCUwQpZVFE7abf5da.jpg" group-title="World News",RT
 https://rt-glb.rttv.com/dvr/rtnews/playlist.m3u8
-#EXTINF:-1 channel-number="20" tvg-id="CGTN.cn@SD" tvg-logo="https://images.seeklogo.com/logo-png/32/1/cgtn-logo-png-seeklogo-326602.png" group-title="World News",CGTN
+#EXTINF:-1 channel-number="21" tvg-id="CGTN.cn@SD" tvg-logo="https://images.seeklogo.com/logo-png/32/1/cgtn-logo-png-seeklogo-326602.png" group-title="World News",CGTN
 https://english-livebkali.cgtn.com/live/encgtn.m3u8
-#EXTINF:-1 channel-number="21" tvg-id="NHK.jp@SD" tvg-logo="https://logos-world.net/wp-content/uploads/2023/04/NHK-Logo.png" group-title="World News",NHK World
+#EXTINF:-1 channel-number="22" tvg-id="NHK.jp@SD" tvg-logo="https://logos-world.net/wp-content/uploads/2023/04/NHK-Logo.png" group-title="World News",NHK World
 https://media-tyo.hls.nhkworld.jp/hls/w/live/master.m3u8
-#EXTINF:-1 channel-number="22" tvg-id="ABC.au@SD" tvg-logo="https://vignette.wikia.nocookie.net/logopedia/images/e/e9/ABCNEWS1965ALT.png" group-title="World News", ABC News AUS
+#EXTINF:-1 channel-number="23" tvg-id="ABC.au@SD" tvg-logo="https://vignette.wikia.nocookie.net/logopedia/images/e/e9/ABCNEWS1965ALT.png" group-title="World News", ABC News AUS
 https://c.mjh.nz/abc-news.m3u8
-#EXTINF:-1 channel-number="23" tvg-logo="https://i.imgur.com/Wc5Z3iS.png" group-title="World News",WION
+#EXTINF:-1 channel-number="24" tvg-logo="https://i.imgur.com/Wc5Z3iS.png" group-title="World News",WION
 https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8
-#EXTINF:-1 channel-number="24" tvg-id="CBCNewsNetwork.ca@SD" tvg-logo="https://i.imgur.com/SjTdhvJ.png" group-title="World News",CBC News
+#EXTINF:-1 channel-number="25" tvg-id="CBCNewsNetwork.ca@SD" tvg-logo="https://i.imgur.com/SjTdhvJ.png" group-title="World News",CBC News
 https://d2ny9lo79ujali.cloudfront.net/CBC_News_International.m3u8
-#EXTINF:-1 channel-number="25" tvg-id="Newsy.us@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Newsy_2021.svg/960px-Newsy_2021.svg.png" group-title="US News",Newsy
+#EXTINF:-1 channel-number="26" tvg-id="Newsy.us@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Newsy_2021.svg/960px-Newsy_2021.svg.png" group-title="US News",Newsy
 https://547f72e6652371c3.mediapackage.us-east-1.amazonaws.com/out/v1/e3e6e29095844c4ba7d887f01e44a5ef/index.m3u8
-#EXTINF:-1 channel-number="26" tvg-id="" tvg-logo="https://latestlogo.com/wp-content/uploads/2024/02/ndtv-24x7-dark-logo.png" tvg-name="NDTV" group-title="India",NDTV24x7
+#EXTINF:-1 channel-number="27" tvg-id="" tvg-logo="https://latestlogo.com/wp-content/uploads/2024/02/ndtv-24x7-dark-logo.png" tvg-name="NDTV" group-title="India",NDTV24x7
 https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/ndtv24x7master.m3u8
-#EXTINF:-1 channel-number="27" tvg-logo="http://akm-img-a-in.tosshub.com/sites/all/themes/itg/logo.png" group-title="India",India Today
+#EXTINF:-1 channel-number="28" tvg-logo="http://akm-img-a-in.tosshub.com/sites/all/themes/itg/logo.png" group-title="India",India Today
 https://livehub-voidnet.onrender.com/cluster/streamcore/in/INDIATODAY_StreamOrchestrator.m3u8
-#EXTINF:-1 channel-number="28" tvg-id="RepublicTV.in@SD" tvg-logo="https://images.seeklogo.com/logo-png/64/1/republic-tv-logo-png_seeklogo-647135.png" group-title="India",Republic TV
+#EXTINF:-1 channel-number="29" tvg-id="RepublicTV.in@SD" tvg-logo="https://images.seeklogo.com/logo-png/64/1/republic-tv-logo-png_seeklogo-647135.png" group-title="India",Republic TV
 https://samsung-republictv.amagi.tv/ts-ap-s1-n1/playlist/samsungin-republictv-samsungindia/playlist.m3u8
