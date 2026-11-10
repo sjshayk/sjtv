@@ -64,11 +64,13 @@
   .wrap{position:relative; width:100%; max-width:480px; margin:0 auto; padding:0 clamp(10px,2.5vw,18px) 14px}
 
   /* Fixed frame, scrolling rows: the page is exactly one screen tall, a
-     single column. The header + player block (pinned top), the
-     now-playing channel-name bar, the All/Favorites tabs, the search box
-     and the group filter never move — only the channel rows scroll,
-     inside a window that fills the height left between that fixed block
-     and the footer. */
+     single column. Top band: the header + player block (pinned top),
+     the now-playing channel-name bar, the All/Favorites tabs, the search
+     box and the group filter never move. Below it, the channel rows
+     scroll in their own window filling the rest of the screen. The
+     footer is NOT pinned: it lives inside that scroll window as the
+     last item after the final channel row, so it only appears once the
+     list has been scrolled all the way to the end. */
   html,body{height:100%}
   body{overflow:hidden}
   .wrap{height:100vh; height:100dvh; display:flex; flex-direction:column}
@@ -77,12 +79,11 @@
   .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   .chan-now{flex:none}
   .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
-  .pagefoot{flex:none}
   @media (max-height:620px){
     /* Very short screens (landscape phones): let the page flow as before
        so the fixed block can never squeeze the rows out of existence. */
     body{overflow:visible}
-    .wrap{height:auto; display:block}
+    .wrap{height:auto; display:block; padding-bottom:14px}
     .layout{display:block}
     .chan-section{display:block}
     .chan-panel-inline .list{flex:none; max-height:min(480px,55dvh)}
@@ -112,7 +113,16 @@
   .btn.active{background:var(--text); color:var(--bg); border-color:var(--text)}
   .btn svg{width:17px;height:17px; flex:none}
 
-  .pagefoot{display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:18px; padding:14px 4px 6px; border-top:1px solid var(--line); color:var(--muted)}
+  /* Footer: in-flow, inside the channel list's scroll window as its
+     last item (see renderList — it is re-appended after the final
+     channel row on every render). It is not fixed or pinned anywhere:
+     it only becomes visible when the list is scrolled to the very end. */
+  .pagefoot{
+    flex:none; width:100%;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    margin-top:6px; padding:14px 4px 6px;
+    border-top:1px solid var(--line); color:var(--muted);
+  }
   .foot-follow{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:7px; font-size:13.5px; font-weight:600; color:var(--muted)}
   .pagefoot a{display:inline-flex; align-items:center; gap:6px; color:var(--text); text-decoration:none}
   .pagefoot a:hover{text-decoration:underline}
@@ -454,22 +464,22 @@
           <input type="search" id="searchInput" placeholder="Search channels…" aria-label="Search channels" />
           <select id="groupSelect" aria-label="Filter by group"><option value="">All groups</option></select>
         </div>
-        <div class="list" id="chanList"></div>
+        <div class="list" id="chanList">
+          <footer class="pagefoot">
+            <div class="foot-follow">
+              <span>Follow at sjshayk on</span>
+              <a href="https://x.com/sjshayk" target="_blank" rel="noopener noreferrer" aria-label="SJTV on X — @sjshayk">X</a>
+              <span>and</span>
+              <span><a href="https://threads.net/@sjshayk" target="_blank" rel="noopener noreferrer" aria-label="SJTV on Threads — @sjshayk">@</a>.</span>
+            </div>
+            <p class="srcnote" id="srcNote">Source note: the channels in the Sample World&nbsp;News list are free public streams published by their respective broadcasters, compiled from public sources including the iptv-org channel lists. SJTV doesn’t host or own any of these streams — all rights remain with their broadcasters.</p>
+          </footer>
+        </div>
       </div>
 
     </section>
 
   </div>
-
-  <footer class="pagefoot">
-    <div class="foot-follow">
-      <span>Follow at sjshayk on</span>
-      <a href="https://x.com/sjshayk" target="_blank" rel="noopener noreferrer" aria-label="SJTV on X — @sjshayk">X</a>
-      <span>and</span>
-      <span><a href="https://threads.net/@sjshayk" target="_blank" rel="noopener noreferrer" aria-label="SJTV on Threads — @sjshayk">@</a>.</span>
-    </div>
-    <p class="srcnote" id="srcNote">Source note: the channels in the Sample World&nbsp;News list are free public streams published by their respective broadcasters, compiled from public sources including the iptv-org channel lists. SJTV doesn’t host or own any of these streams — all rights remain with their broadcasters.</p>
-  </footer>
 </div>
 
 <div class="modal" id="pasteModal" role="dialog" aria-modal="true" aria-labelledby="pasteTitle">
@@ -854,6 +864,17 @@
     catch(e){ try { stage.focus(); } catch(e2){} }
   }
   window.addEventListener('resize', fitChanPanel);
+
+  // The footer lives inside the channel list's scroll window, as the
+  // last item after the final channel row — it is not pinned, so it
+  // only shows once the list is scrolled all the way to the end.
+  // renderList() rebuilds the list with innerHTML, which would drop
+  // the footer node, so it is kept here and re-appended after every
+  // render by appendFoot().
+  var pagefootEl = document.querySelector('.pagefoot');
+  function appendFoot(){
+    if (pagefootEl) chanList.appendChild(pagefootEl);
+  }
   function scrollListToPlaying(){
     // Only the rows scroll, inside their own window: bring the playing
     // row into view within that window (rows carry a small scroll-margin).
@@ -869,6 +890,7 @@
       chanList.innerHTML = '<div class="empty">' + (state.view === 'favs'
         ? 'No favorites here yet.<br>Tap the ★ on any channel to bookmark it — favorites live in this list, whichever playlist is loaded.'
         : 'No channels match.<br>Try a different search, or load your playlist above.') + '</div>';
+      appendFoot();
       return;
     }
     chanList.innerHTML = idxs.map(function(i){
@@ -883,6 +905,7 @@
         '<button type="button" class="star' + (fav ? ' on' : '') + '" data-star="' + i + '" aria-label="' + (fav ? 'Remove ' : 'Bookmark ') + esc(c.name) + (fav ? ' from favorites' : ' as a favorite') + '" title="' + (fav ? 'Remove from favorites' : 'Bookmark as favorite') + '">' + starSVG(fav) + '</button>' +
       '</div>';
     }).join('');
+    appendFoot();
 
   }
   chanList.addEventListener('click', function(e){
