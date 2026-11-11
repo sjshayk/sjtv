@@ -78,11 +78,13 @@
   .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   /* Seamless blend: the channel section is not a separate card. It
-     carries no border, radius or shadow of its own, so the now-playing
-     bar, tabs, search/filter bar and the scrolling rows below them
-     share one continuous panel surface from directly under the player
-     all the way to the bottom edge of the screen. */
-  section.chan-section{border:0; border-radius:0; box-shadow:none}
+     carries no border, radius, shadow or panel background of its own —
+     it paints the page's own background (--bg), so the now-playing bar,
+     tabs, search/filter bar and the scrolling rows below them sit
+     directly on the page surface from directly under the player all
+     the way to the bottom edge of the screen, with no visible solid
+     block in either light or dark mode. */
+  section.chan-section{border:0; border-radius:0; box-shadow:none; background:var(--bg)}
   .chan-now{flex:none}
   .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
   @media (max-height:620px){
