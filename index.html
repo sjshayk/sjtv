@@ -52,7 +52,7 @@
     background:var(--bg); color:var(--text);
     font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;
-    min-height:100svh; min-height:-webkit-fill-available; min-height:100dvh; min-height:100lvh;
+    min-height:100svh; min-height:100dvh; min-height:100lvh;
 
     touch-action:pan-y;
   }
@@ -71,36 +71,36 @@
      footer is NOT pinned: it lives inside that scroll window as the
      last item after the final channel row, so it only appears once the
      list has been scrolled all the way to the end. */
-  html,body{height:100%; height:-webkit-fill-available; height:100dvh; height:100lvh}
+  html,body{height:100%; height:100vh; height:100dvh; height:100lvh}
   body{overflow:hidden}
-  /* Full-bleed frame, second pass: the frame is fixed to the TOP of
-     the screen and sized with the LARGE viewport height (100lvh) —
-     the full physical screen height, including the zone behind
-     Safari's floating bottom bar. Anchoring the bottom instead
-     (inset:0 / bottom:0 / 100dvh) resolves against the layout
-     viewport, whose bottom edge stops at the bar, so the channel
-     rows' scroll window ended there too and a solid strip of panel
-     background was left sitting behind the bar. Sized by 100lvh,
-     the frame's bottom edge lands on the physical bottom edge of
-     the screen, the scroll window flexes to that same edge, and
-     rows scroll right up to — and behind — the bar area. */
+  /* Frame geometry: .wrap is pinned to the TOP of the screen only —
+     its bottom edge is deliberately NOT anchored. Its height comes
+     from the large viewport unit (100lvh), so the bottom edge lands
+     on the physical bottom edge of the screen, past the point where
+     Safari's layout viewport stops at its floating bottom bar. The
+     channel rows therefore scroll right up to and behind the bar
+     area instead of ending above a solid strip. (Anchoring the
+     bottom edge instead — inset:0 / bottom:0 — resolves against the
+     layout viewport and leaves that strip in place.) */
   .wrap{position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:100lvh; display:flex; flex-direction:column}
   .pinned-top{flex:none}
   .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   /* Seamless blend: the channel section is not a separate card. It
-     carries no border, radius or shadow of its own, so the now-playing
-     bar, tabs, search/filter bar and the scrolling rows below them
-     share one continuous panel surface from directly under the player
-     all the way to the bottom edge of the screen. */
-  section.chan-section{border:0; border-radius:0; box-shadow:none}
+     carries no border, radius, shadow or panel background of its own —
+     it paints the page's own background (--bg), so the now-playing bar,
+     tabs, search/filter bar and the scrolling rows below them sit
+     directly on the page surface from directly under the player all
+     the way to the bottom edge of the screen, with no visible solid
+     block in either light or dark mode. */
+  section.chan-section{border:0; border-radius:0; box-shadow:none; background:var(--bg)}
   .chan-now{flex:none}
   .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
   @media (max-height:620px){
     /* Very short screens (landscape phones): let the page flow as before
        so the fixed block can never squeeze the rows out of existence. */
     body{overflow:visible}
-    .wrap{position:relative; height:auto; display:block; padding-bottom:14px}
+    .wrap{position:static; height:auto; display:block; padding-bottom:14px}
     .layout{display:block}
     .chan-section{display:block}
     .chan-panel-inline .list{flex:none; max-height:min(480px,55dvh)}
