@@ -63,29 +63,18 @@
 
   .wrap{position:relative; width:100%; max-width:480px; margin:0 auto; padding:0 clamp(10px,2.5vw,18px) 0}
 
-  /* Fixed frame, scrolling rows: the page is exactly one screen tall, a
-     single column. Top band: the header + player block (pinned top),
-     the now-playing channel-name bar, the All/Favorites tabs, the search
-     box and the group filter never move. Below it, the channel rows
-     scroll in their own window filling the rest of the screen. The
-     footer is NOT pinned: it lives inside that scroll window as the
-     last item after the final channel row, so it only appears once the
-     list has been scrolled all the way to the end. */
-  html,body{height:100%; height:100vh; height:100dvh; height:100lvh}
-  body{overflow:hidden}
-  /* Frame geometry: .wrap is pinned to the TOP of the screen only —
-     its bottom edge is deliberately NOT anchored. Its height comes
-     from the large viewport unit (100lvh), so the bottom edge lands
-     on the physical bottom edge of the screen, past the point where
-     Safari's layout viewport stops at its floating bottom bar. The
-     channel rows therefore scroll right up to and behind the bar
-     area instead of ending above a solid strip. (Anchoring the
-     bottom edge instead — inset:0 / bottom:0 — resolves against the
-     layout viewport and leaves that strip in place.) */
-  .wrap{position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:100lvh; display:flex; flex-direction:column}
-  .pinned-top{flex:none}
-  .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
-  .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+  /* Document scroll: the page itself is the scroller. The body is not
+     locked and .wrap is a plain in-flow column, so the whole page —
+     header, player, now-playing bar, All/Favorites tabs, search box,
+     group filter, channel rows and footer — scrolls as one surface in
+     normal flow. Safari only minimises its floating bottom bar and lets
+     content run behind it in response to the DOCUMENT scrolling, which
+     is what this model gives it (an inner scroll window on a fixed,
+     body-locked frame is ignored). The top block stays pinned via
+     position:sticky on .pinned-top below; the channel rows have no
+     scroll window of their own, and the footer simply ends the page. */
+  .layout{display:block}
+  .chan-section{display:block}
   /* Seamless blend: the channel section is not a separate card. It
      carries no border, radius, shadow or panel background of its own —
      it paints the page's own background (--bg), so the now-playing bar,
@@ -94,16 +83,13 @@
      the way to the bottom edge of the screen, with no visible solid
      block in either light or dark mode. */
   section.chan-section{border:0; border-radius:0; box-shadow:none; background:var(--bg)}
-  .chan-now{flex:none}
-  .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
   @media (max-height:620px){
-    /* Very short screens (landscape phones): let the page flow as before
-       so the fixed block can never squeeze the rows out of existence. */
-    body{overflow:visible}
-    .wrap{position:static; height:auto; display:block; padding-bottom:14px}
-    .layout{display:block}
-    .chan-section{display:block}
-    .chan-panel-inline .list{flex:none; max-height:min(480px,55dvh)}
+    /* Very short screens (landscape phones): the sticky top block is
+       nearly as tall as the screen itself, so un-pin it and let the
+       whole page scroll as one surface — the rows can never be
+       squeezed out of existence by the pinned block. */
+    .pinned-top{position:static}
+    .wrap{padding-bottom:14px}
   }
 
   .topbar{display:flex; align-items:center; gap:12px; flex-wrap:nowrap; margin-bottom:8px}
@@ -130,10 +116,10 @@
   .btn.active{background:var(--text); color:var(--bg); border-color:var(--text)}
   .btn svg{width:17px;height:17px; flex:none}
 
-  /* Footer: in-flow, inside the channel list's scroll window as its
-     last item (see renderList — it is re-appended after the final
-     channel row on every render). It is not fixed or pinned anywhere:
-     it only becomes visible when the list is scrolled to the very end. */
+  /* Footer: in-flow, the last item of the channel list (see renderList
+     — it is re-appended after the final channel row on every render).
+     It is not fixed or pinned anywhere: it ends the page, so it only
+     becomes visible once the page is scrolled all the way down. */
   .pagefoot{
     flex:none; width:100%;
     display:flex; flex-direction:column; align-items:center; gap:10px;
@@ -149,9 +135,10 @@
   .layout>*+*{margin-top:10px}
 
   /* Pinned top block: the header row (playlist selector, brightness and
-     Menu button) and the video player pin together at the top of the
-     screen as one solid block. Only the channel list below scrolls, and
-     it passes underneath this block — the solid background and stacking
+     Menu button), the video player, the now-playing bar, the
+     All/Favorites tabs, the search box and the group filter pin
+     together at the top of the screen as one solid sticky block. The
+     document scrolls beneath it — the solid background and stacking
      keep rows from ghosting through or over it. */
   .pinned-top{
     position:sticky; top:0; z-index:46;
@@ -250,8 +237,8 @@
   .chan-now .cs-meta{min-width:0; flex:1}
   .cs-name{display:block; font-size:17px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .cs-hint{display:block; font-size:12.5px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .chan-panel-inline{display:flex; flex-direction:column; padding:6px 12px 0; flex:1 1 auto; min-height:0}
-  .chan-panel-inline .list{flex:1 1 0%; min-height:0; max-height:none; overflow-x:hidden; overflow-y:auto; padding:8px 2px 0 0; -webkit-overflow-scrolling:touch}
+  .chan-controls{padding:6px 12px 0}
+  .chan-panel-inline{padding:0 12px}
   .chan{scroll-margin-top:6px}
   @media (max-width:380px){ .chan{scroll-margin-top:6px} }
 
@@ -293,7 +280,7 @@
   .tools input[type=search]{flex:1; min-width:0; background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:16px}
   .tools select{background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px; font-size:16px; min-width:0; max-width:150px}
 
-  .list{max-height:min(560px,70dvh); overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; gap:6px; padding-right:2px; touch-action:pan-y; overscroll-behavior:contain}
+  .list{display:flex; flex-direction:column; gap:6px; padding:8px 2px 0 0; touch-action:pan-y}
   .chan{
     min-width:0;
     display:flex; align-items:center; gap:11px; text-align:left; width:100%;
@@ -461,26 +448,29 @@
 
     </aside>
     </div>
+
+  <div class="chan-now">
+    <span class="cs-meta">
+      <span class="cs-name" id="chanSelectName">Select a channel</span>
+      <span class="cs-hint" id="chanSelectHint">Choose a channel below to play it</span>
+    </span>
+  </div>
+
+  <div class="chan-controls">
+    <div class="viewtabs" role="tablist" aria-label="Channel list view">
+      <button type="button" id="tabAll" class="active" role="tab">All channels</button>
+      <button type="button" id="tabFavs" role="tab">★ Favorites (0)</button>
+    </div>
+    <div class="tools">
+      <input type="search" id="searchInput" placeholder="Search channels…" aria-label="Search channels" />
+      <select id="groupSelect" aria-label="Filter by group"><option value="">All groups</option></select>
+    </div>
+  </div>
   </div>
 
   <div class="layout">
     <section class="panel chan-section" aria-label="Channels">
-      <div class="chan-now">
-        <span class="cs-meta">
-          <span class="cs-name" id="chanSelectName">Select a channel</span>
-          <span class="cs-hint" id="chanSelectHint">Choose a channel below to play it</span>
-        </span>
-      </div>
-
       <div class="chan-panel-inline" id="chanPanel">
-        <div class="viewtabs" role="tablist" aria-label="Channel list view">
-          <button type="button" id="tabAll" class="active" role="tab">All channels</button>
-          <button type="button" id="tabFavs" role="tab">★ Favorites (0)</button>
-        </div>
-        <div class="tools">
-          <input type="search" id="searchInput" placeholder="Search channels…" aria-label="Search channels" />
-          <select id="groupSelect" aria-label="Filter by group"><option value="">All groups</option></select>
-        </div>
         <div class="list" id="chanList">
           <footer class="pagefoot">
             <div class="foot-follow">
@@ -882,9 +872,9 @@
   }
   window.addEventListener('resize', fitChanPanel);
 
-  // The footer lives inside the channel list's scroll window, as the
-  // last item after the final channel row — it is not pinned, so it
-  // only shows once the list is scrolled all the way to the end.
+  // The footer lives at the end of the channel list, as the last item
+  // after the final channel row — it is not pinned, so it only shows
+  // once the page is scrolled all the way to the end.
   // renderList() rebuilds the list with innerHTML, which would drop
   // the footer node, so it is kept here and re-appended after every
   // render by appendFoot().
@@ -893,10 +883,14 @@
     if (pagefootEl) chanList.appendChild(pagefootEl);
   }
   function scrollListToPlaying(){
-    // Only the rows scroll, inside their own window: bring the playing
-    // row into view within that window (rows carry a small scroll-margin).
+    // The document is the scroller: bring the playing row into view with
+    // a normal page scroll. The row's scroll-margin is first set to the
+    // sticky top block's height, so the row lands just beneath that
+    // block instead of hidden behind it.
     var cur = chanList.querySelector('.chan.playing');
     if (!cur) return;
+    var pt = document.querySelector('.pinned-top');
+    if (pt){ try { cur.style.scrollMarginTop = (pt.offsetHeight + 8) + 'px'; } catch(e){} }
     try { cur.scrollIntoView({ block: 'start', behavior: 'auto' }); }
     catch(e){ try { cur.scrollIntoView(); } catch(e2){} }
   }
@@ -1294,6 +1288,7 @@
 
     updateNowPlaying();
     renderList();
+    scrollListToPlaying();
     syncFavUI();
     saveState();
     announce(ch, i);
