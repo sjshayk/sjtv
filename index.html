@@ -73,16 +73,18 @@
      list has been scrolled all the way to the end. */
   html,body{height:100%; height:-webkit-fill-available; height:100dvh; height:100lvh}
   body{overflow:hidden}
-  /* Full-bleed frame: the wrap is pinned to all four edges of the
-     layout viewport, so with viewport-fit=cover it stretches the
-     full screen height — including the zone behind Safari's
-     translucent bottom bar and the bottom safe area — instead of
-     stopping at the visible-viewport height (100dvh alone left a
-     solid band of plain page background sitting behind the bar).
-     The channel rows' scroll window flexes to that same bottom
-     edge, so rows scroll right up to — and behind — the bar area,
-     with no solid band left at the bottom. */
-  .wrap{position:fixed; inset:0; height:auto; display:flex; flex-direction:column}
+  /* Full-bleed frame, second pass: the frame is fixed to the TOP of
+     the screen and sized with the LARGE viewport height (100lvh) —
+     the full physical screen height, including the zone behind
+     Safari's floating bottom bar. Anchoring the bottom instead
+     (inset:0 / bottom:0 / 100dvh) resolves against the layout
+     viewport, whose bottom edge stops at the bar, so the channel
+     rows' scroll window ended there too and a solid strip of panel
+     background was left sitting behind the bar. Sized by 100lvh,
+     the frame's bottom edge lands on the physical bottom edge of
+     the screen, the scroll window flexes to that same edge, and
+     rows scroll right up to — and behind — the bar area. */
+  .wrap{position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:100lvh; display:flex; flex-direction:column}
   .pinned-top{flex:none}
   .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
@@ -98,7 +100,7 @@
     /* Very short screens (landscape phones): let the page flow as before
        so the fixed block can never squeeze the rows out of existence. */
     body{overflow:visible}
-    .wrap{position:relative; inset:auto; height:auto; display:block; padding-bottom:14px}
+    .wrap{position:relative; height:auto; display:block; padding-bottom:14px}
     .layout{display:block}
     .chan-section{display:block}
     .chan-panel-inline .list{flex:none; max-height:min(480px,55dvh)}
