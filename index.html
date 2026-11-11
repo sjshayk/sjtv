@@ -46,13 +46,13 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0; overflow-x:clip}
-  html{-webkit-text-size-adjust:100%; text-size-adjust:100%}
+  html{background:var(--bg); -webkit-text-size-adjust:100%; text-size-adjust:100%}
   img,video{max-width:100%}
   body{
     background:var(--bg); color:var(--text);
     font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;
-    min-height:100svh; min-height:100dvh;
+    min-height:100svh; min-height:-webkit-fill-available; min-height:100dvh; min-height:100lvh;
 
     touch-action:pan-y;
   }
@@ -71,27 +71,34 @@
      footer is NOT pinned: it lives inside that scroll window as the
      last item after the final channel row, so it only appears once the
      list has been scrolled all the way to the end. */
-  html,body{height:100%}
+  html,body{height:100%; height:-webkit-fill-available; height:100dvh; height:100lvh}
   body{overflow:hidden}
-  .wrap{height:100vh; height:100dvh; display:flex; flex-direction:column}
+  /* Full-bleed frame: the wrap is pinned to all four edges of the
+     layout viewport, so with viewport-fit=cover it stretches the
+     full screen height — including the zone behind Safari's
+     translucent bottom bar and the bottom safe area — instead of
+     stopping at the visible-viewport height (100dvh alone left a
+     solid band of plain page background sitting behind the bar).
+     The channel rows' scroll window flexes to that same bottom
+     edge, so rows scroll right up to — and behind — the bar area,
+     with no solid band left at the bottom. */
+  .wrap{position:fixed; inset:0; height:auto; display:flex; flex-direction:column}
   .pinned-top{flex:none}
   .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   /* Seamless blend: the channel section is not a separate card. It
-     carries no border, radius, shadow or panel background of its own —
-     it paints the page's own background (--bg), so the now-playing bar,
-     tabs, search/filter bar and the scrolling rows below them sit
-     directly on the page surface from directly under the player all
-     the way to the bottom edge of the screen, with no visible solid
-     block in either light or dark mode. */
-  section.chan-section{border:0; border-radius:0; box-shadow:none; background:var(--bg)}
+     carries no border, radius or shadow of its own, so the now-playing
+     bar, tabs, search/filter bar and the scrolling rows below them
+     share one continuous panel surface from directly under the player
+     all the way to the bottom edge of the screen. */
+  section.chan-section{border:0; border-radius:0; box-shadow:none}
   .chan-now{flex:none}
   .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
   @media (max-height:620px){
     /* Very short screens (landscape phones): let the page flow as before
        so the fixed block can never squeeze the rows out of existence. */
     body{overflow:visible}
-    .wrap{height:auto; display:block; padding-bottom:14px}
+    .wrap{position:relative; inset:auto; height:auto; display:block; padding-bottom:14px}
     .layout{display:block}
     .chan-section{display:block}
     .chan-panel-inline .list{flex:none; max-height:min(480px,55dvh)}
