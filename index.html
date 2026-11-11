@@ -61,7 +61,7 @@
   button,input,select,textarea,a,.chan{touch-action:manipulation}
   svg{display:block}
 
-  .wrap{position:relative; width:100%; max-width:480px; margin:0 auto; padding:0 clamp(10px,2.5vw,18px) 14px}
+  .wrap{position:relative; width:100%; max-width:480px; margin:0 auto; padding:0 clamp(10px,2.5vw,18px) 0}
 
   /* Fixed frame, scrolling rows: the page is exactly one screen tall, a
      single column. Top band: the header + player block (pinned top),
@@ -77,6 +77,12 @@
   .pinned-top{flex:none}
   .layout{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
   .chan-section{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+  /* Seamless blend: the channel section is not a separate card. It
+     carries no border, radius or shadow of its own, so the now-playing
+     bar, tabs, search/filter bar and the scrolling rows below them
+     share one continuous panel surface from directly under the player
+     all the way to the bottom edge of the screen. */
+  section.chan-section{border:0; border-radius:0; box-shadow:none}
   .chan-now{flex:none}
   .chan-panel-inline .viewtabs, .chan-panel-inline .tools{flex:none}
   @media (max-height:620px){
@@ -120,7 +126,7 @@
   .pagefoot{
     flex:none; width:100%;
     display:flex; flex-direction:column; align-items:center; gap:10px;
-    margin-top:6px; padding:14px 4px 6px;
+    margin-top:6px; padding:14px 4px calc(10px + env(safe-area-inset-bottom, 0px));
     border-top:1px solid var(--line); color:var(--muted);
   }
   .foot-follow{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:7px; font-size:13.5px; font-weight:600; color:var(--muted)}
@@ -140,7 +146,7 @@
     position:sticky; top:0; z-index:46;
     background:var(--bg);
     padding-top:calc(var(--stuck-top) + clamp(8px,2vw,14px));
-    padding-bottom:10px;
+    padding-bottom:0;
   }
   .player-panel{position:relative; z-index:1}
 
@@ -233,8 +239,8 @@
   .chan-now .cs-meta{min-width:0; flex:1}
   .cs-name{display:block; font-size:17px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .cs-hint{display:block; font-size:12.5px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .chan-panel-inline{display:flex; flex-direction:column; padding:8px 12px 12px; flex:1 1 auto; min-height:0}
-  .chan-panel-inline .list{flex:1 1 0%; min-height:0; max-height:none; overflow-x:hidden; overflow-y:auto; padding-right:2px; -webkit-overflow-scrolling:touch}
+  .chan-panel-inline{display:flex; flex-direction:column; padding:6px 12px 0; flex:1 1 auto; min-height:0}
+  .chan-panel-inline .list{flex:1 1 0%; min-height:0; max-height:none; overflow-x:hidden; overflow-y:auto; padding:8px 2px 0 0; -webkit-overflow-scrolling:touch}
   .chan{scroll-margin-top:6px}
   @media (max-width:380px){ .chan{scroll-margin-top:6px} }
 
@@ -272,7 +278,7 @@
   .hint code{background:var(--chip); padding:1px 5px; border-radius:5px; font-size:12px}
 
   .srcnote{display:block; font-size:11.5px; font-weight:400; color:var(--muted); line-height:1.55; margin:0; padding:0 8px; width:100%; max-width:none; text-align:justify}
-  .tools{display:flex; gap:8px; margin-bottom:10px}
+  .tools{display:flex; gap:8px; margin-bottom:0}
   .tools input[type=search]{flex:1; min-width:0; background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:16px}
   .tools select{background:var(--input); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px; font-size:16px; min-width:0; max-width:150px}
 
@@ -305,7 +311,7 @@
   .chan .star svg{width:20px; height:20px}
   .chan .star.on{color:var(--warn)}
   .chan .star:hover{border-color:var(--line); background:var(--chip)}
-  .viewtabs{display:flex; gap:6px; background:var(--input); border:1px solid var(--line); border-radius:11px; padding:4px; margin-bottom:10px}
+  .viewtabs{display:flex; gap:6px; background:var(--input); border:1px solid var(--line); border-radius:11px; padding:4px; margin-bottom:8px}
   .viewtabs button{flex:1; min-width:0; border:0; background:transparent; color:var(--muted); font-weight:700; font-size:13.5px; padding:8px 6px; border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .viewtabs button.active{background:var(--panel); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,.18)}
   .savedwrap{margin-top:12px}
