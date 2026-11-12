@@ -188,6 +188,31 @@
   .mini-name{font-weight:700; font-size:16px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .mini-sub{font-size:12px; color:rgba(255,255,255,.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 
+  /* Menu mini-player: while the Menu is open over a playing channel,
+     the stage docks as a small fixed player at the bottom of the
+     screen, floating above the open menu panel (z 48), so the video
+     stays visible and controllable. Only its mini-bar controls show —
+     the big tap zones, fullscreen button, tap-to-play and sound pill
+     are hidden at this size. Closing the Menu removes the class and
+     the stage returns to its place in the sticky top block. JS sets
+     the dock's inline width/height/left (see positionDock). */
+  .stage.menu-dock{
+    position:fixed; top:auto;
+    bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index:49; aspect-ratio:16/9; height:auto; max-width:none;
+    border-radius:12px; box-shadow:0 16px 38px rgba(0,0,0,.6);
+  }
+  .stage.menu-dock .mini-bar{
+    display:flex; align-items:center; gap:8px;
+    position:absolute; left:0; right:0; bottom:0; z-index:6;
+    padding:24px 10px 8px; color:#fff;
+    background:linear-gradient(to bottom, rgba(5,7,9,0), rgba(5,7,9,.85));
+  }
+  .stage.menu-dock .tapzone,
+  .stage.menu-dock .stage-fs,
+  .stage.menu-dock .tapplay,
+  .stage.menu-dock .soundpill{display:none}
+
   .stage-fs{position:absolute; right:12px; bottom:12px; z-index:7; width:50px; height:50px; border-radius:12px; border:1px solid rgba(255,255,255,.4); background:rgba(10,12,14,.66); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
   .stage-fs svg{width:23px; height:23px}
   .stage-fs:active{transform:scale(.94)}
@@ -409,6 +434,7 @@
           <input id="urlInput" type="url" inputmode="url" placeholder="Paste your .m3u / .m3u8 playlist URL…" aria-label="Playlist URL" />
           <button class="btn primary" id="btnLoadUrl" type="button">Load</button>
         </div>
+        <p class="hint" id="urlHint" hidden>That’s a shortened link — Load follows its redirect right here in your browser and opens the playlist it points to.</p>
         <div class="btnrow trio">
           <button class="btn" id="btnFile" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/></svg>
@@ -2168,9 +2194,10 @@
   var pinSuppressUntil = 0, repinTimer = null;
   function repinSettled(){
     clearTimeout(repinTimer);
-    repinTimer = setTimeout(function(){ if (isStuck) positionStuck(); checkStuck(); }, 320);
+    repinTimer = setTimeout(function(){ if (isStuck) positionStuck(); if (menuDocked) positionDock(); checkStuck(); }, 320);
   }
   function checkStuck(){
+    if (menuDocked) return;
     if (!state.now || pipIsActive() || fsIsActive()){ setStuck(false); return; }
     if (!isStuck && Date.now() < pinSuppressUntil) return;
     var top = stageWrap.getBoundingClientRect().top;
@@ -2178,7 +2205,7 @@
     else if (isStuck && top > -6) setStuck(false);
   }
   window.addEventListener('scroll', checkStuck, { passive: true });
-  window.addEventListener('resize', function(){ if (isStuck) positionStuck(); checkStuck(); repinSettled(); });
+  window.addEventListener('resize', function(){ if (isStuck) positionStuck(); if (menuDocked) positionDock(); checkStuck(); repinSettled(); });
   window.addEventListener('orientationchange', function(){
     pinSuppressUntil = Date.now() + 650;
     repinSettled();
@@ -2187,6 +2214,45 @@
   $('miniNext').addEventListener('click', function(){ nextChannel(); showControls(); });
   $('miniPlay').addEventListener('click', function(){ togglePlay(); showControls(); });
   $('miniBar').addEventListener('dblclick', function(e){ e.stopPropagation(); });
+
+  // Menu mini-player: when the Menu opens over a channel, the stage
+  // docks as a small fixed player at the bottom of the screen (the
+  // .menu-dock styles above), floating over the open Menu with its
+  // mini-bar controls, so the video stays visible instead of sitting
+  // hidden behind the panel. The stage element itself never moves in
+  // the DOM — only its positioning changes — so playback is never
+  // interrupted; the wrap keeps a same-height placeholder so the
+  // sticky top block and the channel list don't jump. Closing the
+  // Menu (any route: button, outside tap, Escape, or picking an item)
+  // undocks and hands the stage back to the normal stuck-pin logic.
+  var menuDocked = false;
+  function positionDock(){
+    var s = stuckSize();
+    var w = Math.min(s.w, 320);
+    var h = w * 9 / 16;
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    stage.style.left = Math.max(8, Math.round((window.innerWidth - w) / 2)) + 'px';
+  }
+  function dockStageForMenu(){
+    if (menuDocked) return;
+    if (!state.now || pipIsActive() || fsIsActive()) return;
+    if (isStuck) setStuck(false);
+    menuDocked = true;
+    stageWrap.style.height = stageWrap.offsetHeight + 'px';
+    stage.classList.add('menu-dock');
+    positionDock();
+  }
+  function undockStageForMenu(){
+    if (!menuDocked) return;
+    menuDocked = false;
+    stage.classList.remove('menu-dock');
+    stage.style.left = '';
+    stage.style.width = '';
+    stage.style.height = '';
+    stageWrap.style.height = '';
+    checkStuck();
+  }
 
   function firstInteraction(){
     if (state.interacted) return;
@@ -2216,13 +2282,21 @@
     menuPanelEl.hidden = !open;
     menuBtnEl.classList.toggle('active', open);
     menuBtnEl.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open){ try { menuPanelEl.scrollTop = 0; } catch(e){} }
+    if (open){
+      try { menuPanelEl.scrollTop = 0; } catch(e){}
+      dockStageForMenu();
+    } else {
+      undockStageForMenu();
+    }
   }
   function closeMenu(){ setMenu(false); }
   if (menuBtnEl) menuBtnEl.addEventListener('click', function(){ setMenu(menuPanelEl.hidden); });
   document.addEventListener('pointerdown', function(e){
     if (!menuPanelEl || menuPanelEl.hidden) return;
     if (e.target && e.target.closest && e.target.closest('#menuPanel, #menuBtn')) return;
+    // Taps on the docked mini-player are control taps, not an
+    // outside tap — they must not close the Menu mid-interaction.
+    if (menuDocked && e.target && e.target.closest && e.target.closest('#stage')) return;
     setMenu(false);
   });
   document.addEventListener('keydown', function(e){
@@ -2320,6 +2394,60 @@
     return fetch(url);
   }
 
+  // Shortened links (bit.ly and friends). Their redirect responses
+  // carry no CORS permission, so a normal fetch cannot follow them —
+  // the browser blocks the very first hop and every load route fails,
+  // even though the link and the playlist behind it are fine.
+  var SHORT_LINK_HOSTS = [
+    'bit.ly', 'bitly.is', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'v.gd',
+    'rb.gy', 'tiny.cc', 'cutt.ly', 'rebrand.ly', 'shorturl.at', 'ow.ly',
+    'buff.ly', 's.id', 'bl.ink', 'short.io', 'qr.ae', 'x.co', 'shorte.st',
+    'adf.ly', 'bc.vc', 'yourls.org'
+  ];
+  function isShortLink(url){
+    var s = String(url || '').trim();
+    if (!s) return false;
+    if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+    try {
+      var host = new URL(s).hostname.toLowerCase().replace(/^www\./, '');
+      return SHORT_LINK_HOSTS.indexOf(host) >= 0;
+    } catch(e){ return false; }
+  }
+  // Resolve a short link entirely in the browser: a no-cors fetch is
+  // allowed to follow the redirect chain (the response comes back
+  // opaque, so the body is never read), and the URL the chain landed
+  // on is exposed as response.url. The request goes only to the
+  // shortener itself — the typed URL is never sent to any third-party
+  // resolver or proxy. Resolves '' when the landing URL cannot be
+  // learned (timeout, network error, browser withholds it), and the
+  // caller then falls back to the original URL and the usual routes.
+  function probeShortLink(url){
+    return new Promise(function(resolve){
+      var ctl = null, timer = null, settled = false;
+      function done(v){
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        resolve(v || '');
+      }
+      try {
+        var opts = { mode: 'no-cors', redirect: 'follow' };
+        if (typeof AbortController === 'function'){
+          ctl = new AbortController();
+          opts.signal = ctl.signal;
+          timer = setTimeout(function(){
+            try { ctl.abort(); } catch(e){}
+            done('');
+          }, 10000);
+        }
+        fetch(url, opts).then(
+          function(r){ done(r && r.url ? r.url : ''); },
+          function(){ done(''); }
+        );
+      } catch(e){ done(''); }
+    });
+  }
+
   function applyRefreshedChannels(chans){
     var nowUrl = state.now ? state.now.url : '';
     state.allChannels = chans;
@@ -2341,6 +2469,30 @@
   function fetchPlaylist(url, label, desc, autoplayFirst, opts){
     opts = opts || {};
     var original = String(url || '').trim();
+    // Short-link pre-step: probe the short URL in-browser (see
+    // probeShortLink) and, when a landing URL is learned, re-enter
+    // once with it so the Drive-direct / GitHub / Direct routes below
+    // run against the real target. desc passes through untouched, so
+    // the saved-list description keeps the short URL the user typed
+    // (and a later Refresh re-resolves it the same way). The
+    // __shortProbed flag guards the re-entry — one probe per load,
+    // never a loop. An empty or unchanged landing re-enters with the
+    // original URL, so the load ends in the existing routes and, if
+    // they all fail, the existing failure message.
+    if (!opts.__shortProbed && isShortLink(original)){
+      opts.__shortProbed = true;
+      if (!opts.background) showStageMsg('Following short link…', false);
+      probeShortLink(original.replace(/^http:\/\//i, 'https://')).then(function(landed){
+        var target = String(landed || '').trim();
+        var keepDesc = desc || { kind: 'url', label: label, url: original };
+        if (target && target !== original){
+          fetchPlaylist(target, label, keepDesc, autoplayFirst, opts);
+        } else {
+          fetchPlaylist(original, label, keepDesc, autoplayFirst, opts);
+        }
+      });
+      return;
+    }
     var direct = original.replace(/^http:\/\//i, 'https://');
     var attempts = [];
     var did = driveIdFrom(direct);
@@ -2564,6 +2716,10 @@
   });
   $('urlInput').addEventListener('keydown', function(e){
     if (e.key === 'Enter'){ e.preventDefault(); $('btnLoadUrl').click(); }
+  });
+  $('urlInput').addEventListener('input', function(){
+    var hint = $('urlHint');
+    if (hint) hint.hidden = !isShortLink(this.value);
   });
 
   $('btnFile').addEventListener('click', function(){ $('fileInput').click(); });
