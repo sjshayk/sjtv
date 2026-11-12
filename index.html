@@ -6,7 +6,6 @@
 <meta name="color-scheme" content="light dark" />
 <!-- Publish keep list (repo-root files preserved on page refresh/export): manifest.json, playlists/, apple-touch-icon.png -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-<link rel="icon" type="image/png" href="apple-touch-icon.png" />
 <title>SJTV LIVE</title>
 <meta name="apple-mobile-web-app-title" content="SJTV LIVE" />
 <meta name="description" content="SJTV — a m3u player, built by Muse. Watch world news from public iptv-org playlists, or load any public .m3u playlist." />
@@ -1561,6 +1560,7 @@
     $('miniName').textContent = ch.name;
     $('miniSub').textContent = (state.index >= 0 && n ? 'Channel ' + (state.index + 1) + ' of ' + n + '  ·  ' : '') + (ch.group || 'Live news');
     document.title = ch.name + ' — SJTV';
+    setMediaSession(ch);
   }
 
   var mayaVoice = null;
@@ -1622,17 +1622,33 @@
     }
   }
 
+  function channelArtwork(logo){
+    var art = [];
+    if (!logo || !/^https?:\/\/\S+$/i.test(logo)) return art;
+    var type = '';
+    if (/\.png(\?|#|$)/i.test(logo)) type = 'image/png';
+    else if (/\.jpe?g(\?|#|$)/i.test(logo)) type = 'image/jpeg';
+    else if (/\.webp(\?|#|$)/i.test(logo)) type = 'image/webp';
+    else if (/\.gif(\?|#|$)/i.test(logo)) type = 'image/gif';
+    else if (/\.svg(\?|#|$)/i.test(logo)) type = 'image/svg+xml';
+    var sizes = ['96x96', '128x128', '192x192', '256x256', '384x384', '512x512'];
+    for (var i = 0; i < sizes.length; i++){
+      var entry = { src: logo, sizes: sizes[i] };
+      if (type) entry.type = type;
+      art.push(entry);
+    }
+    return art;
+  }
+
   function setMediaSession(ch){
     if (!('mediaSession' in navigator)) return;
 
     try {
-      var art = [];
-      if (ch.logo && /^https?:\/\/\S+$/i.test(ch.logo)) art = [{ src: ch.logo, sizes: '512x512' }];
       navigator.mediaSession.metadata = new MediaMetadata({
         title: ch.name,
         artist: 'SJTV LIVE',
         album: ch.group || 'Live news',
-        artwork: art
+        artwork: channelArtwork(ch.logo)
       });
     } catch(e){}
     try {
