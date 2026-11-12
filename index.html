@@ -434,7 +434,7 @@
           <input id="urlInput" type="url" inputmode="url" placeholder="Paste your .m3u / .m3u8 playlist URL…" aria-label="Playlist URL" />
           <button class="btn primary" id="btnLoadUrl" type="button">Load</button>
         </div>
-        <p class="hint" id="urlHint" hidden>That’s a shortened link — Load follows its redirect right here in your browser and opens the playlist it points to.</p>
+        <p class="hint" id="urlHint" hidden>That’s a shortened link — Load resolves it first, then opens the playlist it points to.</p>
         <div class="btnrow trio">
           <button class="btn" id="btnFile" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/></svg>
@@ -2413,39 +2413,26 @@
       return SHORT_LINK_HOSTS.indexOf(host) >= 0;
     } catch(e){ return false; }
   }
-  // Resolve a short link entirely in the browser: a no-cors fetch is
-  // allowed to follow the redirect chain (the response comes back
-  // opaque, so the body is never read), and the URL the chain landed
-  // on is exposed as response.url. The request goes only to the
-  // shortener itself — the typed URL is never sent to any third-party
-  // resolver or proxy. Resolves '' when the landing URL cannot be
-  // learned (timeout, network error, browser withholds it), and the
-  // caller then falls back to the original URL and the usual routes.
-  function probeShortLink(url){
-    return new Promise(function(resolve){
-      var ctl = null, timer = null, settled = false;
-      function done(v){
-        if (settled) return;
-        settled = true;
-        if (timer) clearTimeout(timer);
-        resolve(v || '');
-      }
-      try {
-        var opts = { mode: 'no-cors', redirect: 'follow' };
-        if (typeof AbortController === 'function'){
-          ctl = new AbortController();
-          opts.signal = ctl.signal;
-          timer = setTimeout(function(){
-            try { ctl.abort(); } catch(e){}
-            done('');
-          }, 10000);
-        }
-        fetch(url, opts).then(
-          function(r){ done(r && r.url ? r.url : ''); },
-          function(){ done(''); }
-        );
-      } catch(e){ done(''); }
-    });
+  // Resolve a short link through the unshorten.me JSON service
+  // (user-approved 2026-11-12, scoped to short links only): it
+  // follows the redirect server-side and returns the landing URL as
+  // JSON, with CORS headers a browser origin can read. A browser-only
+  // probe cannot do this — an opaque no-cors response always reports
+  // an empty URL, so the landing address is never learnable that way.
+  // Resolves '' on any failure (timeout, error, empty or non-HTTP
+  // result), and the caller then falls back to the original URL and
+  // the usual routes.
+  function resolveShortLink(url){
+    return fetchWithTimeout('https://unshorten.me/json/' + encodeURIComponent(url), 10000)
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(j){
+        var t = j && j.resolved_url ? String(j.resolved_url).trim() : '';
+        return /^https?:\/\//i.test(t) ? t : '';
+      })
+      .catch(function(){ return ''; });
   }
 
   function applyRefreshedChannels(chans){
@@ -2469,23 +2456,26 @@
   function fetchPlaylist(url, label, desc, autoplayFirst, opts){
     opts = opts || {};
     var original = String(url || '').trim();
-    // Short-link pre-step: probe the short URL in-browser (see
-    // probeShortLink) and, when a landing URL is learned, re-enter
-    // once with it so the Drive-direct / GitHub / Direct routes below
-    // run against the real target. desc passes through untouched, so
-    // the saved-list description keeps the short URL the user typed
-    // (and a later Refresh re-resolves it the same way). The
-    // __shortProbed flag guards the re-entry — one probe per load,
-    // never a loop. An empty or unchanged landing re-enters with the
-    // original URL, so the load ends in the existing routes and, if
-    // they all fail, the existing failure message.
-    if (!opts.__shortProbed && isShortLink(original)){
-      opts.__shortProbed = true;
-      if (!opts.background) showStageMsg('Following short link…', false);
-      probeShortLink(original.replace(/^http:\/\//i, 'https://')).then(function(landed){
+    // Short-link pre-step: resolve the short URL through unshorten.me
+    // (see resolveShortLink) and, when a landing URL comes back,
+    // re-enter once with it so the Drive-direct / GitHub / Direct
+    // routes below run against the real target. desc passes through
+    // untouched, so the saved-list description keeps the short URL
+    // the user typed (and a later Refresh re-resolves it the same
+    // way). The __shortResolved flag guards the re-entry — one
+    // resolution per load, never a loop. An empty or unchanged
+    // resolution re-enters with the original URL, so the load ends in
+    // the existing routes and, if they all fail, the existing failure
+    // message. When a resolved target is in play, opts.__relayUrl
+    // arms the last-resort relay attempt in tryNext below.
+    if (!opts.__shortResolved && isShortLink(original)){
+      opts.__shortResolved = true;
+      if (!opts.background) showStageMsg('Resolving short link…', false);
+      resolveShortLink(original.replace(/^http:\/\//i, 'https://')).then(function(landed){
         var target = String(landed || '').trim();
         var keepDesc = desc || { kind: 'url', label: label, url: original };
         if (target && target !== original){
+          opts.__relayUrl = target;
           fetchPlaylist(target, label, keepDesc, autoplayFirst, opts);
         } else {
           fetchPlaylist(original, label, keepDesc, autoplayFirst, opts);
@@ -2515,6 +2505,7 @@
     if (!opts.background) showStageMsg('Fetching playlist…', false);
     var queue = attempts.slice();
     var retryPass = 0;
+    var relayTried = false;
     var RETRY_DELAYS = [4000, 12000];
 
     var failNotes = [];
@@ -2542,6 +2533,19 @@
     }
     function tryNext(){
       if (!queue.length){
+        // Relay last resort: a resolved short-link target that still
+        // cannot load directly (its host blocks browser fetches — the
+        // Google download server refusing cross-site requests is the
+        // known case) is fetched once through the allorigins /raw
+        // relay, which returns the playlist text fetched server-side.
+        // Armed only for short-link loads via opts.__relayUrl; never
+        // used for directly typed addresses.
+        if (!relayTried && opts.__relayUrl){
+          relayTried = true;
+          queue.push({ method: 'Relay', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(opts.__relayUrl) });
+          tryNext();
+          return;
+        }
         if (!opts.background && retryPass < RETRY_DELAYS.length){
           var retryDelay = RETRY_DELAYS[retryPass];
           retryPass++;
