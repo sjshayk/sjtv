@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark" />
 <!-- Publish keep list (repo-root files preserved on page refresh/export): manifest.json, playlists/, apple-touch-icon.png -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" href="data:," />
 <title>SJTV LIVE</title>
 <meta name="apple-mobile-web-app-title" content="SJTV LIVE" />
 <meta name="description" content="SJTV — a m3u player, built by Muse. Watch world news from public iptv-org playlists, or load any public .m3u playlist." />
@@ -593,6 +594,7 @@
     skipTimer: null,
     skipGuard: {},
     switchAt: 0,
+    switching: false,
     playedThisSwitch: false,
     playingSince: 0,
     deadDeferred: false,
@@ -1171,6 +1173,12 @@
     state.index = i;
     state.now = ch;
     state.userPaused = false;
+    state.switching = true;
+    // Publish the new channel's Media Session metadata BEFORE the old
+    // stream is torn down, and keep reporting 'playing' across the
+    // switch (see setMediaSession), so iOS doesn't hand Now Playing
+    // back to Music/Podcasts mid-skip.
+    setMediaSession(ch);
     clearTimeout(state.skipTimer);
     clearTimeout(state.watchdogTimer);
     clearPlayTimers();
@@ -1390,6 +1398,7 @@
     clearPlayTimers();
     hideTapPlay();
     state.playedThisSwitch = true;
+    state.switching = false;
     state.hlsNetFails = 0;
 
     if (boot.phase === 1 || boot.phase === 2){
@@ -1494,6 +1503,9 @@
     spinner.classList.remove('on');
     var ch = state.now || state.channels[state.index];
     if (!ch) return;
+    // The switch is given up: stop holding 'playing' and publish the
+    // honest state below if no auto-skip takes over.
+    state.switching = false;
     var now = Date.now();
 
     state.skipGuard[ch.url] = now;
@@ -1503,6 +1515,7 @@
       state.skipTimer = setTimeout(function(){ nextChannel(); }, 1600);
     } else {
       showStageMsg(reason + ': ' + ch.name + '. Press NEXT to try another channel.', true);
+      setMediaSession(ch);
     }
   }
 
@@ -1622,38 +1635,39 @@
     }
   }
 
-  function channelArtwork(logo){
-    var art = [];
-    if (!logo || !/^https?:\/\/\S+$/i.test(logo)) return art;
-    var type = '';
-    if (/\.png(\?|#|$)/i.test(logo)) type = 'image/png';
-    else if (/\.jpe?g(\?|#|$)/i.test(logo)) type = 'image/jpeg';
-    else if (/\.webp(\?|#|$)/i.test(logo)) type = 'image/webp';
-    else if (/\.gif(\?|#|$)/i.test(logo)) type = 'image/gif';
-    else if (/\.svg(\?|#|$)/i.test(logo)) type = 'image/svg+xml';
-    var sizes = ['96x96', '128x128', '192x192', '256x256', '384x384', '512x512'];
-    for (var i = 0; i < sizes.length; i++){
-      var entry = { src: logo, sizes: sizes[i] };
-      if (type) entry.type = type;
-      art.push(entry);
-    }
-    return art;
-  }
-
   function setMediaSession(ch){
     if (!('mediaSession' in navigator)) return;
 
     try {
+      // Publish the channel logo as a single artwork entry with NO
+      // sizes claim: the playlist's real logos are all different sizes
+      // (145x61, 400x300, 728x563…), and a false sizes claim is what
+      // made iOS discard the artwork entirely. The type is included
+      // only when the logo URL's extension determines it.
+      var art = [];
+      if (ch.logo && /^https?:\/\/\S+$/i.test(ch.logo)){
+        var entry = { src: ch.logo };
+        if (/\.png(\?|#|$)/i.test(ch.logo)) entry.type = 'image/png';
+        else if (/\.jpe?g(\?|#|$)/i.test(ch.logo)) entry.type = 'image/jpeg';
+        art = [entry];
+      }
       navigator.mediaSession.metadata = new MediaMetadata({
         title: ch.name,
         artist: 'SJTV LIVE',
         album: ch.group || 'Live news',
-        artwork: channelArtwork(ch.logo)
+        artwork: art
       });
     } catch(e){}
     try {
 
-      navigator.mediaSession.playbackState = (video.paused || video.ended) ? 'paused' : 'playing';
+      // Across a channel switch, keep reporting 'playing' until the
+      // new stream actually starts (or the switch is given up as
+      // dead), so iOS holds Now Playing on SJTV instead of handing
+      // it back to Music/Podcasts mid-skip. A deliberate pause still
+      // reports the honest state.
+      navigator.mediaSession.playbackState = (state.switching && !state.userPaused)
+        ? 'playing'
+        : ((video.paused || video.ended) ? 'paused' : 'playing');
     } catch(e){}
     registerMediaHandlers();
   }
@@ -1672,7 +1686,7 @@
   }
 
   function pauseDeliberately(){
-    state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
+    state.userPaused = true; state.switching = false; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
     holdMediaSession();
   }
 
@@ -2400,6 +2414,16 @@
     function runAttempt(a){
       if (!opts.background) showStageMsg('Trying ' + a.method + '…', false);
       fetchWithTimeout(a.url, 15000).then(function(r){
+        // A short link (Bitly etc.) may redirect to a Google Drive
+        // file page — HTML, not a playlist. Inspect where the
+        // redirect chain actually landed; if it is a Drive file,
+        // queue the Drive direct-download route for that file next
+        // so the M3U itself loads.
+        var landedId = driveIdFrom(r.url || '');
+        if (landedId && !driveTried[landedId]){
+          driveTried[landedId] = 1;
+          queue.unshift({ method: 'Drive direct', url: driveDownloadUrl(landedId) });
+        }
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.text();
       }).then(function(text){
