@@ -1360,6 +1360,50 @@
     if (window.requestAnimationFrame) requestAnimationFrame(checkStuck);
   }
 
+  // Live-edge seek for resume: these are live HLS streams, so while
+  // paused the live edge moves on and the paused position goes stale
+  // — there is no data left there to play. Playing at that stale
+  // position stalls, and the stall used to be "recovered" seconds
+  // later by reloading the whole channel, which left the video with
+  // no playable media for the entire load and made iOS drop the
+  // Now Playing session (Control Center flipping to "Not Playing").
+  // Seeking to just inside the live edge first, while still paused,
+  // and only then playing, resumes at live with no teardown, so the
+  // media session is never dropped. Returns true when it sought.
+  function seekToLiveEdge(){
+    try {
+      if (!video.paused || video.ended) return false;
+      if (!video.seekable || !video.seekable.length) return false;
+      var idx = video.seekable.length - 1;
+      var start = video.seekable.start(idx);
+      var end = video.seekable.end(idx);
+      if (!isFinite(end) || !(end > start)) return false;
+      // A few seconds inside the live edge, clamped inside the range.
+      var target = end - 3;
+      if (target < start) target = start;
+      if (target >= end) target = Math.max(start, end - 0.5);
+      var cur = video.currentTime || 0;
+      // Only seek when the paused position is meaningfully behind
+      // the live edge (or has fallen out of the seekable window).
+      if (cur >= start && target - cur < 2) return false;
+      video.currentTime = target;
+      playLog('resume: sought to live edge (' + target.toFixed(1) + 's of ' + end.toFixed(1) + 's) instead of playing at stale ' + cur.toFixed(1) + 's');
+      return true;
+    } catch(e){ return false; }
+  }
+
+  // Hold the media session across a resume: (re-)publish the
+  // metadata and report 'playing' when the resume starts, not only
+  // once the stream is confirmed playing, so iOS keeps SJTV in
+  // Control Center / on the lock screen for the whole resume.
+  function publishResumeSession(){
+    if (!state.now || !('mediaSession' in navigator)) return;
+    try {
+      setMediaSession(state.now);
+      navigator.mediaSession.playbackState = 'playing';
+    } catch(e){}
+  }
+
   function tryPlay(keepMuted){
 
     if (!(keepMuted && video.muted && boot.muted)) endBoot(true);
@@ -1373,6 +1417,12 @@
         state.now){
       playLog('resume press on a wedged native load — reloading ' + state.now.name + ' inside the gesture');
       if (reloadCurrentChannel()) return;
+    }
+    // Resume at live, not at the stale paused position, and hold
+    // the media session from the moment the resume starts.
+    if (video.paused && !video.ended && state.now){
+      seekToLiveEdge();
+      publishResumeSession();
     }
     attemptPlay(playSeq, 'resume');
   }
@@ -1402,6 +1452,11 @@
       if (reloadCurrentChannel()) return;
     }
 
+    // Not stale and not a long pause: resume in place. Hold the
+    // media session from the start of the resume (tryPlay then
+    // seeks to the live edge before playing, so there is no
+    // teardown during which iOS could drop Now Playing).
+    publishResumeSession();
     remoteKeepMuted = true;
     tryPlay(true);
 
