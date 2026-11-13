@@ -47,7 +47,17 @@
     }
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0; overflow-x:clip}
+  html,body{margin:0;padding:0}
+  /* No overflow value on html, body or .wrap: a non-visible overflow on
+     any ancestor of .pinned-top makes that ancestor the scroll container
+     in iOS Safari, and position:sticky then silently never pins — the
+     top block scrolls away with the page (this was the "sticky doesn't
+     stick" bug). The document must stay the one and only scroller, which
+     also keeps Safari's bottom-bar minimisation working. Horizontal
+     clipping is scoped to .layout instead — a sibling subtree below the
+     pinned block that contains no sticky element — and every other part
+     of the page is width-constrained by its own rules, so the page still
+     cannot scroll sideways. */
   html{background:var(--bg); -webkit-text-size-adjust:100%; text-size-adjust:100%}
   img,video{max-width:100%}
   body{
@@ -75,7 +85,7 @@
      body-locked frame is ignored). The top block stays pinned via
      position:sticky on .pinned-top below; the channel rows have no
      scroll window of their own, and the footer simply ends the page. */
-  .layout{display:block}
+  .layout{display:block; overflow-x:clip}
   .chan-section{display:block}
   /* Seamless blend: the channel section is not a separate card. It
      carries no border, radius, shadow or panel background of its own —
@@ -912,16 +922,32 @@
     if (pagefootEl) chanList.appendChild(pagefootEl);
   }
   function scrollListToPlaying(){
-    // The document is the scroller: bring the playing row into view with
-    // a normal page scroll. The row's scroll-margin is first set to the
-    // sticky top block's height, so the row lands just beneath that
-    // block instead of hidden behind it.
+    // The document is the scroller. On a channel change, scroll ONLY
+    // when the playing row is actually outside the visible band — the
+    // strip between the pinned top block's bottom edge and the bottom
+    // of the viewport. A row already fully inside that band leaves the
+    // scroll position completely untouched, so skipping channels never
+    // yanks the view away from wherever the user has scrolled to. When
+    // a scroll is needed, move by the smallest amount that brings the
+    // row just into view at the nearest edge (just below the pinned
+    // block at the top, just above the viewport bottom at the bottom) —
+    // never re-centred, never re-positioned to the top.
     var cur = chanList.querySelector('.chan.playing');
     if (!cur) return;
+    var gap = 8;
+    var topEdge = 0;
     var pt = document.querySelector('.pinned-top');
-    if (pt){ try { cur.style.scrollMarginTop = (pt.offsetHeight + 8) + 'px'; } catch(e){} }
-    try { cur.scrollIntoView({ block: 'start', behavior: 'auto' }); }
-    catch(e){ try { cur.scrollIntoView(); } catch(e2){} }
+    if (pt){
+      var ptRect = pt.getBoundingClientRect();
+      if (ptRect.bottom > 0) topEdge = ptRect.bottom;
+    }
+    var viewH = window.innerHeight || document.documentElement.clientHeight;
+    var rect = cur.getBoundingClientRect();
+    if (rect.top >= topEdge + gap && rect.bottom <= viewH - gap) return;
+    var delta = rect.top < topEdge + gap
+      ? rect.top - (topEdge + gap)
+      : rect.bottom - (viewH - gap);
+    if (delta) window.scrollBy(0, delta);
   }
 
   function renderList(){
