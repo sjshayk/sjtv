@@ -1691,14 +1691,17 @@
     if (!('mediaSession' in navigator)) return;
 
     try {
-      // Publish the channel logo as a single artwork entry with NO
-      // sizes claim: the playlist's real logos are all different sizes
-      // (145x61, 400x300, 728x563…), and a false sizes claim is what
-      // made iOS discard the artwork entirely. The type is included
-      // only when the logo URL's extension determines it.
+      // Publish the channel logo as a single artwork entry claiming
+      // sizes '512x512', exactly as the pre-logo configuration had it
+      // (and as the app build still has it). Control Center displays
+      // the artwork with or without the claim, but the Bluetooth
+      // (AVRCP) cover-art path to the car needs the dimensions
+      // declared — without them iOS has nothing to advertise over
+      // Bluetooth and the car shows its generic icon. The type is
+      // included only when the logo URL's extension determines it.
       var art = [];
       if (ch.logo && /^https?:\/\/\S+$/i.test(ch.logo)){
-        var entry = { src: ch.logo };
+        var entry = { src: ch.logo, sizes: '512x512' };
         if (/\.png(\?|#|$)/i.test(ch.logo)) entry.type = 'image/png';
         else if (/\.jpe?g(\?|#|$)/i.test(ch.logo)) entry.type = 'image/jpeg';
         art = [entry];
