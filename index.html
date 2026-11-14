@@ -370,6 +370,66 @@
   }
   .toast.on{opacity:1; transform:translate(-50%,0)}
 
+  /* Wide layout — landscape iPad and desktop (GitHub page): at
+     viewport widths of 1024px and up the phone column gives way to a
+     two-column split. The LEFT column (75%) holds the header row, the
+     video at 16:9 filling the column width, and the now-playing bar.
+     The RIGHT column (25%) is a channel-list window spanning the full
+     viewport height: the All/Favorites tabs, search box and group
+     filter sit at its top as the window's header, and the numbered
+     channel rows scroll inside the window's own scroll area — the
+     document itself never scrolls in this layout. Below 1024px
+     (phones, portrait iPad) none of these rules apply and the page is
+     exactly the single centered 480px column it has always been.
+     .pinned-top becomes display:contents here so its children (header
+     row, player, now-playing bar, list controls) can be placed into
+     the grid directly; the Menu panel stays an absolutely positioned
+     overlay over the left column, and the menu mini-player dock stays
+     a fixed bottom player (positionDock centres it on the left
+     column — see the script). */
+  @media (min-width:1024px){
+    body{overflow:hidden}
+    .wrap{
+      max-width:none; margin:0; height:100vh; height:100dvh;
+      display:grid;
+      grid-template-columns:minmax(0,3fr) minmax(0,1fr);
+      grid-template-rows:auto auto minmax(0,1fr);
+      grid-template-areas:"top controls" "player list" "now list";
+      column-gap:14px; row-gap:0;
+      padding:calc(var(--stuck-top) + 10px) 14px 12px;
+      overflow:hidden;
+    }
+    .pinned-top{display:contents}
+    .topbar{grid-area:top; align-self:start; min-width:0}
+    .player-panel{
+      grid-area:player; align-self:start; min-width:0; justify-self:center;
+      width:100%;
+      width:min(100%, max(300px, calc((100dvh - 210px) * 16 / 9)));
+    }
+    .chan-now{grid-area:now; align-self:start; min-width:0; margin-top:10px}
+    .chan-controls{
+      grid-area:controls; align-self:stretch; min-width:0;
+      background:var(--panel); border:1px solid var(--line); border-bottom:0;
+      border-radius:var(--radius) var(--radius) 0 0;
+      padding:10px 10px 2px;
+    }
+    .layout{grid-area:list; min-width:0; min-height:0; display:flex}
+    section.chan-section{
+      flex:1; min-width:0; min-height:0; display:flex; flex-direction:column;
+      background:var(--panel); border:1px solid var(--line); border-top:0;
+      border-radius:0 0 var(--radius) var(--radius); box-shadow:none;
+    }
+    .chan-panel-inline{flex:1; min-height:0; display:flex; flex-direction:column; padding:0 6px}
+    .list{
+      flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch; padding:8px 4px 8px 2px;
+    }
+    .menu-panel{
+      top:calc(var(--stuck-top) + 64px); left:14px; right:auto;
+      width:calc((100vw - 42px) * .75); max-height:calc(100dvh - 84px);
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -921,6 +981,9 @@
   function appendFoot(){
     if (pagefootEl) chanList.appendChild(pagefootEl);
   }
+  function isWideLayout(){
+    return !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
+  }
   function scrollListToPlaying(){
     // The document is the scroller. On a channel change, scroll ONLY
     // when the playing row is actually outside the visible band — the
@@ -935,6 +998,21 @@
     var cur = chanList.querySelector('.chan.playing');
     if (!cur) return;
     var gap = 8;
+    if (isWideLayout()){
+      // Wide layout: the document never scrolls — the channel list is
+      // its own scroll window in the right-hand column. Apply the same
+      // rule inside that window instead: scroll the list container
+      // only when the playing row is outside its visible band, by the
+      // smallest nearest-edge amount.
+      var cRect = chanList.getBoundingClientRect();
+      var wRect = cur.getBoundingClientRect();
+      if (wRect.top >= cRect.top + gap && wRect.bottom <= cRect.bottom - gap) return;
+      var wDelta = wRect.top < cRect.top + gap
+        ? wRect.top - (cRect.top + gap)
+        : wRect.bottom - (cRect.bottom - gap);
+      if (wDelta) chanList.scrollTop += wDelta;
+      return;
+    }
     var topEdge = 0;
     var pt = document.querySelector('.pinned-top');
     if (pt){
@@ -2316,7 +2394,13 @@
     var h = w * 9 / 16;
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
-    stage.style.left = Math.max(8, Math.round((window.innerWidth - w) / 2)) + 'px';
+    // Centre the dock over the player column. On the phone layout the
+    // column is the centred page column, so this centres on the screen
+    // exactly as before; on the wide layout it centres over the left
+    // (video) column instead of drifting into the channel list.
+    var r = stageWrap.getBoundingClientRect();
+    var cx = r.width ? (r.left + r.width / 2) : window.innerWidth / 2;
+    stage.style.left = Math.max(8, Math.round(cx - w / 2)) + 'px';
   }
   function dockStageForMenu(){
     if (menuDocked) return;
