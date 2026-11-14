@@ -385,10 +385,13 @@
      column it has always been.
      .pinned-top becomes display:contents here so its children (header
      row, player, now-playing bar, list controls) can be placed into
-     the grid directly; the Menu panel stays an absolutely positioned
-     overlay over the left column, and the menu mini-player dock stays
-     a fixed bottom player (positionDock centres it on the left
-     column — see the script). On top of that, the script physically
+     the grid directly; the Menu panel becomes an absolutely positioned
+     overlay over the RIGHT (channel-list) column instead, dropped
+     below the Menu button within that window's bounds, so the video
+     in the left column stays fully visible while the menu is open —
+     and because the menu no longer covers the video here, the menu
+     mini-player dock never engages in this layout (see the script).
+     On top of that, the script physically
      moves .topbar and .chan-controls out of .pinned-top to be direct
      grid children of .wrap while the wide layout is active (and moves
      the two header buttons into the .head-actions row, and everything
@@ -440,9 +443,17 @@
       flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
       -webkit-overflow-scrolling:touch; padding:8px 4px 8px 2px;
     }
+    /* Menu panel over the right window: same column width and right
+       edge as the channel-list window below it (wrap padding 14px +
+       gap 14px + 3fr/1fr split of the remaining width), dropped just
+       below the keep-screen-on / Menu button row, and tall enough to
+       end exactly at the window's bottom edge (12px above the
+       viewport bottom) — never wider, never spilling over the video. */
     .menu-panel{
-      top:calc(var(--stuck-top) + 64px); left:14px; right:auto;
-      width:calc((100vw - 42px) * .75); max-height:calc(100dvh - 84px);
+      top:calc(var(--stuck-top) + 64px); left:auto; right:14px;
+      width:calc((100vw - 42px) * .25);
+      max-height:calc(100dvh - var(--stuck-top) - 76px);
+      padding:12px 10px 4px;
     }
   }
 
@@ -1041,6 +1052,18 @@
       pinnedTop.appendChild(chanControls);
     }
     wideDomApplied = wide;
+    // Keep the menu mini-player dock in step with the layout if the
+    // breakpoint is crossed while the Menu is open: entering the wide
+    // layout undocks (the Menu sits over the channel list there and
+    // the video was never covered), returning to the phone layout
+    // re-docks an open Menu exactly as opening it there would. At the
+    // first call the menu state further down the script has not been
+    // initialised yet — those names are hoisted and read as empty, so
+    // both branches safely no-op.
+    try {
+      if (wide){ if (menuDocked) undockStageForMenu(); }
+      else if (menuPanelEl && !menuPanelEl.hidden) dockStageForMenu();
+    } catch(e){}
   }
   if (window.matchMedia){
     var wideMq = window.matchMedia('(min-width: 1024px)');
@@ -2459,16 +2482,22 @@
     var h = w * 9 / 16;
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
-    // Centre the dock over the player column. On the phone layout the
-    // column is the centred page column, so this centres on the screen
-    // exactly as before; on the wide layout it centres over the left
-    // (video) column instead of drifting into the channel list.
+    // Centre the dock over the player column. The dock only engages
+    // on the phone layout (dockStageForMenu refuses in the wide
+    // layout, where the Menu opens over the channel list instead), so
+    // the column here is the centred page column and this centres the
+    // dock on the screen.
     var r = stageWrap.getBoundingClientRect();
     var cx = r.width ? (r.left + r.width / 2) : window.innerWidth / 2;
     stage.style.left = Math.max(8, Math.round(cx - w / 2)) + 'px';
   }
   function dockStageForMenu(){
     if (menuDocked) return;
+    // Wide layout: the Menu opens over the right channel-list window
+    // and never covers the video, so there is nothing to rescue — the
+    // dock stays off and the stage keeps its place over the left
+    // column. The dock is a phone-layout behaviour only.
+    if (isWideLayout()) return;
     if (!state.now || pipIsActive() || fsIsActive()) return;
     if (isStuck) setStuck(false);
     menuDocked = true;
