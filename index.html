@@ -199,18 +199,20 @@
   .mini-sub{font-size:12px; color:rgba(255,255,255,.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 
   /* Menu mini-player: while the Menu is open over a playing channel,
-     the stage docks as a small fixed player at the bottom of the
-     screen, floating above the open menu panel (z 48), so the video
-     stays visible and controllable. Only its mini-bar controls show —
-     the big tap zones, fullscreen button, tap-to-play and sound pill
-     are hidden at this size. Closing the Menu removes the class and
-     the stage returns to its place in the sticky top block. JS sets
-     the dock's inline width/height/left (see positionDock). */
+     the stage docks as a small fixed player floating above the open
+     menu panel (z 48), so the video stays visible and controllable.
+     Only its mini-bar controls show — the big tap zones, fullscreen
+     button, tap-to-play and sound pill are hidden at this size.
+     Closing the Menu removes the class and the stage returns to its
+     place in the sticky top block. JS sizes and places the dock to
+     match the menu panel exactly — same width and left edge, top
+     edge flush against the panel's bottom edge, no gap on any side
+     (see positionDock); the bottom below is only the pre-JS default. */
   .stage.menu-dock{
     position:fixed; top:auto;
     bottom:calc(10px + env(safe-area-inset-bottom, 0px));
     z-index:49; aspect-ratio:16/9; height:auto; max-width:none;
-    border-radius:12px; box-shadow:0 16px 38px rgba(0,0,0,.6);
+    border-radius:var(--radius); box-shadow:0 16px 38px rgba(0,0,0,.6);
   }
   .stage.menu-dock .mini-bar{
     display:flex; align-items:center; gap:8px;
@@ -2542,10 +2544,11 @@
   $('miniBar').addEventListener('dblclick', function(e){ e.stopPropagation(); });
 
   // Menu mini-player: when the Menu opens over a channel, the stage
-  // docks as a small fixed player at the bottom of the screen (the
-  // .menu-dock styles above), floating over the open Menu with its
-  // mini-bar controls, so the video stays visible instead of sitting
-  // hidden behind the panel. The stage element itself never moves in
+  // docks as a small fixed player sized and placed to match the Menu
+  // panel — same width and edges, top flush against the panel's
+  // bottom edge (the .menu-dock styles above) — floating over the
+  // open Menu with its mini-bar controls, so the video stays visible
+  // instead of sitting hidden behind the panel. The stage element itself never moves in
   // the DOM — only its positioning changes — so playback is never
   // interrupted; the wrap keeps a same-height placeholder so the
   // sticky top block and the channel list don't jump. Closing the
@@ -2553,19 +2556,34 @@
   // undocks and hands the stage back to the normal stuck-pin logic.
   var menuDocked = false;
   function positionDock(){
+    // The dock matches the open Menu panel exactly: same width, same
+    // left edge, and its top edge flush against the panel's bottom
+    // edge, so no channel list shows through on either side of it or
+    // between it and the panel. The panel is measured live (it is
+    // only ever open while the dock is engaged), so this tracks the
+    // panel across widths and rotations. If the panel somehow cannot
+    // be measured, fall back to the centred player-column sizing.
+    var pr = menuPanelEl && !menuPanelEl.hidden ? menuPanelEl.getBoundingClientRect() : null;
+    if (pr && pr.width > 0){
+      var w = Math.round(pr.width);
+      stage.style.width = w + 'px';
+      stage.style.height = Math.round(w * 9 / 16) + 'px';
+      stage.style.left = Math.round(pr.left) + 'px';
+      // bottom offset that puts the dock's top edge exactly on the
+      // panel's bottom edge. When the panel already reaches the
+      // bottom of the screen this is ~0 and the dock simply sits at
+      // the screen bottom against the panel — never a gap.
+      stage.style.bottom = Math.max(0, Math.round(window.innerHeight - pr.bottom)) + 'px';
+      return;
+    }
     var s = stuckSize();
-    var w = Math.min(s.w, 320);
-    var h = w * 9 / 16;
-    stage.style.width = w + 'px';
-    stage.style.height = h + 'px';
-    // Centre the dock over the player column. The dock only engages
-    // on the phone layout (dockStageForMenu refuses in the wide
-    // layout, where the Menu opens over the channel list instead), so
-    // the column here is the centred page column and this centres the
-    // dock on the screen.
+    var fw = Math.min(s.w, 320);
+    stage.style.width = fw + 'px';
+    stage.style.height = (fw * 9 / 16) + 'px';
+    stage.style.bottom = '';
     var r = stageWrap.getBoundingClientRect();
     var cx = r.width ? (r.left + r.width / 2) : window.innerWidth / 2;
-    stage.style.left = Math.max(8, Math.round(cx - w / 2)) + 'px';
+    stage.style.left = Math.max(8, Math.round(cx - fw / 2)) + 'px';
   }
   function dockStageForMenu(){
     if (menuDocked) return;
@@ -2588,6 +2606,7 @@
     stage.style.left = '';
     stage.style.width = '';
     stage.style.height = '';
+    stage.style.bottom = '';
     stageWrap.style.height = '';
     checkStuck();
   }
