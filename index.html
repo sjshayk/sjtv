@@ -373,13 +373,12 @@
   /* Wide layout — landscape iPad and desktop (GitHub page): at
      viewport widths of 1024px and up the phone column gives way to a
      two-column split. The LEFT column (75%) holds the SJTV LIVE title
-     centred above the video, the video at 16:9 filling the column
-     width, and the now-playing bar; the playlist pill sits at the
-     top-right of the left column, on the same line as the right
-     window's button row, just before the keep-screen-on button. The
-     RIGHT column (25%) is a channel-list window spanning the full
-     viewport height: the keep-screen-on and Menu buttons sit at its
-     top in a .head-actions row, above the All/Favorites tabs, search
+     centred alone above the video, the video at 16:9 filling the
+     column width, and the now-playing bar. The RIGHT column (25%) is
+     a channel-list window spanning the full viewport height: the
+     playlist pill, the keep-screen-on and Menu buttons sit at its
+     top in a .head-actions row — pill first, immediately before the
+     keep-screen-on button — above the All/Favorites tabs, search
      box and group filter, and the numbered channel rows scroll inside
      the window's own scroll area — the document itself never scrolls
      in this layout. Below 1024px (phones, portrait iPad) none of
@@ -423,21 +422,22 @@
       overflow:hidden;
     }
     .pinned-top{display:contents}
-    /* Left column header: SJTV LIVE stays here, centred above the
-       video (the script moves the keep-screen-on and Menu buttons
-       into the right column). The bar is given the height of the
-       right window's button band (10px controls padding + the 38px
-       buttons) so the header row reads as one line across the top.
-       The playlist pill is taken out of the centred stack and pinned
-       to the bar's right edge, vertically centred on that same band
-       — level with, and immediately before, the keep-screen-on
-       button in the right window. */
+    /* Left column header: SJTV LIVE stays here, centred alone above
+       the video (the script moves the playlist pill, the
+       keep-screen-on and Menu buttons into the right column). The
+       bar is given the height of the right window's button band
+       (10px controls padding + the 38px buttons) so the header row
+       reads as one line across the top. */
     .topbar{grid-area:top; align-self:start; min-width:0; justify-content:center; position:relative; min-height:58px}
     .topbar .spacer{display:none}
-    #srcPill{position:absolute; right:0; top:50%; transform:translateY(-50%); max-width:40%}
-    /* Right column header actions row: keep-screen-on + Menu, moved
-       here by the script while the wide layout is active. */
+    /* Right column header actions row: playlist pill first, then
+       keep-screen-on + Menu, moved here by the script while the wide
+       layout is active. The pill truncates with an ellipsis when the
+       playlist name is too long for the 25% column — its base rule
+       already gives it flex:0 1 auto with min-width:0 and hidden
+       overflow, and the buttons never shrink. */
     .head-actions{display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-bottom:8px}
+    .head-actions .btn{flex:none}
     .player-panel{
       grid-area:player; align-self:start; min-width:0; justify-self:center;
       width:100%;
@@ -1037,10 +1037,10 @@
   // the top of the channel section inside the right-hand window (as
   // a row-1 grid item its height sized the shared first row and left
   // a tall gap between the left column's header and the video), and
-  // the keep-screen-on and Menu buttons move into a .head-actions
-  // row at the top of those controls, leaving SJTV LIVE centred over
-  // the video in the left column and the playlist pill pinned to that
-  // column's top-right edge, just before the keep-screen-on button.
+  // the playlist pill, the keep-screen-on and Menu buttons move into
+  // a .head-actions row at the top of those controls — pill first,
+  // immediately before the keep-screen-on button — leaving SJTV LIVE
+  // centred alone over the video in the left column.
   // Below the breakpoint everything is moved back into .pinned-top in
   // its original order, so the phone layout's DOM is exactly what it
   // has always been. The moved elements keep their identity and their
@@ -1054,8 +1054,8 @@
     var layout = document.querySelector('.layout');
     var topbar = document.querySelector('.topbar');
     var chanControls = document.querySelector('.chan-controls');
-    var wakeBtn = $('wakeBtn'), menuBtn = $('menuBtn');
-    if (!pinnedTop || !wrap || !layout || !topbar || !chanControls || !wakeBtn || !menuBtn) return;
+    var wakeBtn = $('wakeBtn'), menuBtn = $('menuBtn'), srcPill = $('srcPill');
+    if (!pinnedTop || !wrap || !layout || !topbar || !chanControls || !wakeBtn || !menuBtn || !srcPill) return;
     if (wide){
       wrap.insertBefore(topbar, layout);
       // The list controls nest at the top of the channel section,
@@ -1068,10 +1068,16 @@
       else wrap.insertBefore(chanControls, layout);
       headActionsEl = document.createElement('div');
       headActionsEl.className = 'head-actions';
+      headActionsEl.appendChild(srcPill);
       headActionsEl.appendChild(wakeBtn);
       headActionsEl.appendChild(menuBtn);
       chanControls.insertBefore(headActionsEl, chanControls.firstChild);
     } else {
+      // The pill returns to its original spot in the topbar, between
+      // the SJTV LIVE mark and the spacer; the buttons follow it.
+      var tbSpacer = topbar.querySelector('.spacer');
+      if (tbSpacer) topbar.insertBefore(srcPill, tbSpacer);
+      else topbar.appendChild(srcPill);
       topbar.appendChild(wakeBtn);
       topbar.appendChild(menuBtn);
       if (headActionsEl && headActionsEl.parentNode) headActionsEl.parentNode.removeChild(headActionsEl);
@@ -2140,9 +2146,14 @@
     hideSoundPill();
     if (video.paused && state.now && !state.userPaused) attemptPlay(playSeq, 'tap-for-sound');
   });
-  $('tapNext').addEventListener('click', nextChannel);
-  $('tapPrev').addEventListener('click', prevChannel);
-  $('tapToggle').addEventListener('click', togglePlay);
+  // The tap zones ignore clicks inside the short window after a
+  // fullscreen exit (see the exit guard at the swipe handler below):
+  // the click Safari synthesises at the end of the swipe-down exit
+  // gesture can land on Prev/Next and change the channel the viewer
+  // was only trying to keep watching.
+  $('tapNext').addEventListener('click', function(){ if (!fsExitGuardActive()) nextChannel(); });
+  $('tapPrev').addEventListener('click', function(){ if (!fsExitGuardActive()) prevChannel(); });
+  $('tapToggle').addEventListener('click', function(){ if (!fsExitGuardActive()) togglePlay(); });
   stage.addEventListener('dblclick', function(){ toggleFullscreen(); });
 
   var controlsHideTimer = null;
@@ -2166,13 +2177,50 @@
   stage.addEventListener('touchstart', showControls, { passive: true });
   showControls();
 
+  // Fullscreen-exit guard. The swipe-down that leaves fullscreen on
+  // iPad/iPhone must never be read as a channel gesture: the touch
+  // begins in the fullscreen layout and ends in the page layout (or
+  // spans the teardown), and the old swipe check looked only at the
+  // horizontal delta, so the drift in an exit swipe fired Prev/Next;
+  // the synthetic click Safari dispatches after the gesture could
+  // also land on a tap zone the gesture itself had just revealed.
+  // So: a swipe only counts when it is clearly horizontal, a gesture
+  // that spans a fullscreen change is discarded outright, any
+  // recorded touch start is dropped the moment fullscreen exits,
+  // and stage gestures/taps are ignored for a short window after
+  // any exit. Exiting fullscreen — by swipe, button, rotation or
+  // Done — now always keeps the current channel playing.
+  var lastFsExitAt = 0;
+  function fsExitGuardActive(){ return lastFsExitAt > 0 && Date.now() - lastFsExitAt < 800; }
+  function noteFsExit(){
+    if (fsIsActive()) return;
+    lastFsExitAt = Date.now();
+    touchX = null; touchY = null;
+  }
+  document.addEventListener('fullscreenchange', noteFsExit);
+  document.addEventListener('webkitfullscreenchange', noteFsExit);
+  video.addEventListener('webkitendfullscreen', noteFsExit);
+
   var touchX = null;
-  stage.addEventListener('touchstart', function(e){ touchX = e.changedTouches[0].clientX; }, { passive: true });
+  var touchY = null;
+  var touchFs = false;
+  stage.addEventListener('touchstart', function(e){
+    touchX = e.changedTouches[0].clientX;
+    touchY = e.changedTouches[0].clientY;
+    touchFs = fsIsActive();
+  }, { passive: true });
   stage.addEventListener('touchend', function(e){
     if (touchX === null) return;
     var dx = e.changedTouches[0].clientX - touchX;
-    touchX = null;
-    if (Math.abs(dx) > 60){ if (dx < 0) nextChannel(); else prevChannel(); }
+    var dy = e.changedTouches[0].clientY - touchY;
+    var spannedFsChange = touchFs !== fsIsActive();
+    touchX = null; touchY = null;
+    if (spannedFsChange || fsExitGuardActive()) return;
+    // Only a clearly horizontal swipe changes channel: a downward
+    // exit swipe travels mostly vertically, so it never qualifies.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy)){
+      if (dx < 0) nextChannel(); else prevChannel();
+    }
   }, { passive: true });
 
   function fsElement(){
