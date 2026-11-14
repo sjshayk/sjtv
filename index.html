@@ -232,6 +232,30 @@
   .stage.controls-on .stage-fs, .stage .stage-fs:focus-visible{opacity:1; pointer-events:auto}
   @media (prefers-reduced-motion: reduce){ .stage .stage-fs{transition:none} }
 
+  /* Picture-in-picture toggle: sits beside the fullscreen button and,
+     like it, only appears while the stage controls are showing. While
+     PiP is active it stays lit (accent) so it reads as the way back. */
+  .stage-pip{position:absolute; right:74px; bottom:12px; z-index:7; width:50px; height:50px; border-radius:12px; border:1px solid rgba(255,255,255,.4); background:rgba(10,12,14,.66); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
+  .stage-pip svg{width:23px; height:23px}
+  .stage-pip:active{transform:scale(.94)}
+  .stage-pip.on{background:var(--accent); border-color:var(--accent-dark)}
+  .stage .stage-pip{opacity:0; pointer-events:none; transition:opacity .25s}
+  .stage.controls-on .stage-pip, .stage .stage-pip:focus-visible{opacity:1; pointer-events:auto}
+  .stage.menu-dock .stage-pip{display:none}
+  @media (prefers-reduced-motion: reduce){ .stage .stage-pip{transition:none} }
+
+  /* While the video floats in a PiP window the browser paints its own
+     black "Playing in picture-in-picture" placeholder where the video
+     was, with no way back. This overlay covers that dead area whenever
+     PiP is active and offers the return path in the page itself. */
+  .pip-overlay{position:absolute; inset:0; z-index:6; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:#000; color:#fff; text-align:center; padding:20px}
+  .pip-overlay.on{display:flex}
+  .pip-overlay .pip-title{font-family:"Barlow Condensed",sans-serif; font-size:23px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; line-height:1.1}
+  .pip-overlay .pip-sub{font-size:14px; color:rgba(255,255,255,.75); max-width:420px; line-height:1.4}
+  .pip-back{margin-top:6px; display:inline-flex; align-items:center; gap:9px; background:var(--accent); color:#fff; border:1px solid var(--accent-dark); border-radius:999px; padding:12px 22px; font:inherit; font-size:16px; font-weight:700; box-shadow:0 10px 26px rgba(0,0,0,.5); cursor:pointer}
+  .pip-back svg{width:20px; height:20px}
+  .pip-back:active{transform:scale(.96)}
+
   .stage video{width:100%; height:100%; display:block; background:#000; object-fit:contain}
 
   .stage .tapzone{position:absolute; top:50%; transform:translateY(-50%); height:112px; max-height:100%; width:22%; z-index:3; background:transparent; border:0; color:#fff; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .25s}
@@ -533,6 +557,17 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.3 5h2.2v14h-2.2zM4.5 5.6v12.8L15 12z"/></svg>
           </button>
         </div>
+        <div class="pip-overlay" id="pipOverlay">
+          <div class="pip-title">Playing in picture-in-picture</div>
+          <div class="pip-sub" id="pipOverlaySub">The video is floating in a small window so you can keep watching while you use other tabs or apps.</div>
+          <button class="pip-back" id="btnPipBack" type="button" aria-label="Bring the video back to this page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12.5" y="12" width="6" height="4.5" rx="1" fill="currentColor" stroke="none"/></svg>
+            Bring video back here
+          </button>
+        </div>
+        <button class="stage-pip" id="btnPipStage" type="button" title="Picture in picture" aria-label="Picture in picture" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12.5" y="12" width="6" height="4.5" rx="1" fill="currentColor" stroke="none"/></svg>
+        </button>
         <button class="stage-fs" id="btnFsStage" type="button" title="Full screen" aria-label="Full screen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
         </button>
@@ -2401,7 +2436,23 @@
     if (document.pictureInPictureElement) return true;
     return video.webkitPresentationMode === 'picture-in-picture';
   }
-  function syncPipUI(){   }
+  function syncPipUI(){
+    var on = false;
+    try { on = !!pipIsActive(); } catch(e){}
+    var ov = $('pipOverlay');
+    if (ov) ov.classList.toggle('on', on);
+    var b = $('btnPipStage');
+    if (b){
+      b.classList.toggle('on', on);
+      b.title = on ? 'Bring video back to this page' : 'Picture in picture';
+      b.setAttribute('aria-label', on ? 'Bring video back to this page' : 'Picture in picture');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    if (on) showControls();
+  }
+  function togglePip(){
+    if (pipIsActive()) exitPip(); else enterPip(false);
+  }
   function enterPip(auto){
     var fail = function(){ if (!auto) toast('Picture-in-picture is not available for this stream in this browser.'); };
     try {
@@ -2454,6 +2505,9 @@
   video.addEventListener('enterpictureinpicture', syncPipUI);
   video.addEventListener('leavepictureinpicture', syncPipUI);
   video.addEventListener('webkitpresentationmodechanged', syncPipUI);
+  $('btnPipStage').addEventListener('click', togglePip);
+  $('btnPipBack').addEventListener('click', function(){ exitPip(); });
+  syncPipUI();
 
   window.addEventListener('blur', tryAutoPip);
   window.addEventListener('pagehide', tryAutoPip);
