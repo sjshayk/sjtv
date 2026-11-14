@@ -372,21 +372,30 @@
 
   /* Wide layout — landscape iPad and desktop (GitHub page): at
      viewport widths of 1024px and up the phone column gives way to a
-     two-column split. The LEFT column (75%) holds the header row, the
-     video at 16:9 filling the column width, and the now-playing bar.
-     The RIGHT column (25%) is a channel-list window spanning the full
-     viewport height: the All/Favorites tabs, search box and group
-     filter sit at its top as the window's header, and the numbered
-     channel rows scroll inside the window's own scroll area — the
-     document itself never scrolls in this layout. Below 1024px
-     (phones, portrait iPad) none of these rules apply and the page is
-     exactly the single centered 480px column it has always been.
+     two-column split. The LEFT column (75%) holds the SJTV LIVE title
+     and playlist pill centred above the video, the video at 16:9
+     filling the column width, and the now-playing bar. The RIGHT
+     column (25%) is a channel-list window spanning the full viewport
+     height: the keep-screen-on and Menu buttons sit at its top in a
+     .head-actions row, above the All/Favorites tabs, search box and
+     group filter, and the numbered channel rows scroll inside the
+     window's own scroll area — the document itself never scrolls in
+     this layout. Below 1024px (phones, portrait iPad) none of these
+     rules apply and the page is exactly the single centered 480px
+     column it has always been.
      .pinned-top becomes display:contents here so its children (header
      row, player, now-playing bar, list controls) can be placed into
      the grid directly; the Menu panel stays an absolutely positioned
      overlay over the left column, and the menu mini-player dock stays
      a fixed bottom player (positionDock centres it on the left
-     column — see the script). */
+     column — see the script). On top of that, the script physically
+     moves .topbar and .chan-controls out of .pinned-top to be direct
+     grid children of .wrap while the wide layout is active (and moves
+     the two header buttons into the .head-actions row, and everything
+     back below the breakpoint): WebKit does not reliably place
+     display:contents children into named grid areas — on iPad Safari
+     the header row and the tabs were dropped from view entirely —
+     while real grid children place deterministically everywhere. */
   @media (min-width:1024px){
     body{overflow:hidden}
     .wrap{
@@ -400,7 +409,14 @@
       overflow:hidden;
     }
     .pinned-top{display:contents}
-    .topbar{grid-area:top; align-self:start; min-width:0}
+    /* Left column header: only SJTV LIVE and the playlist pill stay
+       here (the script moves the keep-screen-on and Menu buttons into
+       the right column), centred above the video. */
+    .topbar{grid-area:top; align-self:start; min-width:0; justify-content:center}
+    .topbar .spacer{display:none}
+    /* Right column header actions row: keep-screen-on + Menu, moved
+       here by the script while the wide layout is active. */
+    .head-actions{display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-bottom:8px}
     .player-panel{
       grid-area:player; align-self:start; min-width:0; justify-self:center;
       width:100%;
@@ -983,6 +999,55 @@
   }
   function isWideLayout(){
     return !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
+  }
+  // Wide-layout DOM arrangement (see the wide-layout CSS comment):
+  // while the viewport is 1024px or wider, .topbar and .chan-controls
+  // are moved out of .pinned-top to be direct grid children of .wrap —
+  // WebKit does not reliably place display:contents children into
+  // named grid areas (on iPad Safari the header row and the
+  // All/Favorites tabs vanished from the wide layout entirely) — and
+  // the keep-screen-on and Menu buttons move into a .head-actions row
+  // at the top of the right column's controls, leaving SJTV LIVE and
+  // the playlist pill centred over the video in the left column.
+  // Below the breakpoint everything is moved back into .pinned-top in
+  // its original order, so the phone layout's DOM is exactly what it
+  // has always been. The moved elements keep their identity and their
+  // listeners throughout; nothing is cloned or rebuilt.
+  var wideDomApplied = false;
+  var headActionsEl = null;
+  function applyWideDom(wide){
+    if (wide === wideDomApplied) return;
+    var pinnedTop = document.querySelector('.pinned-top');
+    var wrap = document.querySelector('.wrap');
+    var layout = document.querySelector('.layout');
+    var topbar = document.querySelector('.topbar');
+    var chanControls = document.querySelector('.chan-controls');
+    var wakeBtn = $('wakeBtn'), menuBtn = $('menuBtn');
+    if (!pinnedTop || !wrap || !layout || !topbar || !chanControls || !wakeBtn || !menuBtn) return;
+    if (wide){
+      wrap.insertBefore(topbar, layout);
+      wrap.insertBefore(chanControls, layout);
+      headActionsEl = document.createElement('div');
+      headActionsEl.className = 'head-actions';
+      headActionsEl.appendChild(wakeBtn);
+      headActionsEl.appendChild(menuBtn);
+      chanControls.insertBefore(headActionsEl, chanControls.firstChild);
+    } else {
+      topbar.appendChild(wakeBtn);
+      topbar.appendChild(menuBtn);
+      if (headActionsEl && headActionsEl.parentNode) headActionsEl.parentNode.removeChild(headActionsEl);
+      headActionsEl = null;
+      pinnedTop.insertBefore(topbar, pinnedTop.firstChild);
+      pinnedTop.appendChild(chanControls);
+    }
+    wideDomApplied = wide;
+  }
+  if (window.matchMedia){
+    var wideMq = window.matchMedia('(min-width: 1024px)');
+    var onWideChange = function(){ try { applyWideDom(!!wideMq.matches); } catch(e){} };
+    if (wideMq.addEventListener) wideMq.addEventListener('change', onWideChange);
+    else if (wideMq.addListener) wideMq.addListener(onWideChange);
+    onWideChange();
   }
   function scrollListToPlaying(){
     // The document is the scroller. On a channel change, scroll ONLY
