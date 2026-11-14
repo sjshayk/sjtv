@@ -373,32 +373,43 @@
   /* Wide layout — landscape iPad and desktop (GitHub page): at
      viewport widths of 1024px and up the phone column gives way to a
      two-column split. The LEFT column (75%) holds the SJTV LIVE title
-     and playlist pill centred above the video, the video at 16:9
-     filling the column width, and the now-playing bar. The RIGHT
-     column (25%) is a channel-list window spanning the full viewport
-     height: the keep-screen-on and Menu buttons sit at its top in a
-     .head-actions row, above the All/Favorites tabs, search box and
-     group filter, and the numbered channel rows scroll inside the
-     window's own scroll area — the document itself never scrolls in
-     this layout. Below 1024px (phones, portrait iPad) none of these
-     rules apply and the page is exactly the single centered 480px
-     column it has always been.
+     centred above the video, the video at 16:9 filling the column
+     width, and the now-playing bar; the playlist pill sits at the
+     top-right of the left column, on the same line as the right
+     window's button row, just before the keep-screen-on button. The
+     RIGHT column (25%) is a channel-list window spanning the full
+     viewport height: the keep-screen-on and Menu buttons sit at its
+     top in a .head-actions row, above the All/Favorites tabs, search
+     box and group filter, and the numbered channel rows scroll inside
+     the window's own scroll area — the document itself never scrolls
+     in this layout. Below 1024px (phones, portrait iPad) none of
+     these rules apply and the page is exactly the single centered
+     480px column it has always been.
      .pinned-top becomes display:contents here so its children (header
-     row, player, now-playing bar, list controls) can be placed into
-     the grid directly; the Menu panel becomes an absolutely positioned
+     row, player, now-playing bar) can be placed into the grid
+     directly; the Menu panel becomes an absolutely positioned
      overlay over the RIGHT (channel-list) column instead, dropped
      below the Menu button within that window's bounds, so the video
      in the left column stays fully visible while the menu is open —
      and because the menu no longer covers the video here, the menu
      mini-player dock never engages in this layout (see the script).
-     On top of that, the script physically
-     moves .topbar and .chan-controls out of .pinned-top to be direct
-     grid children of .wrap while the wide layout is active (and moves
-     the two header buttons into the .head-actions row, and everything
-     back below the breakpoint): WebKit does not reliably place
-     display:contents children into named grid areas — on iPad Safari
-     the header row and the tabs were dropped from view entirely —
-     while real grid children place deterministically everywhere. */
+     On top of that, the script physically moves .topbar out of
+     .pinned-top to be a direct grid child of .wrap while the wide
+     layout is active (and moves the two header buttons into the
+     .head-actions row, and everything back below the breakpoint):
+     WebKit does not reliably place display:contents children into
+     named grid areas — on iPad Safari the header row and the tabs
+     were dropped from view entirely — while real grid children place
+     deterministically everywhere.
+     The list controls (.chan-controls) are NOT a grid item here: the
+     script nests them at the top of the channel section, inside the
+     right window. As a row-1 grid item their height (button row +
+     tabs + search, ~155px against the header's ~32px) sized the
+     shared first grid row, and the video — placed in row 2 — started
+     below all of it, leaving a tall empty gap under SJTV LIVE.
+     Nested inside the window they no longer size any row, so row 1
+     is exactly the left header's height and the video sits directly
+     beneath it. */
   @media (min-width:1024px){
     body{overflow:hidden}
     .wrap{
@@ -406,17 +417,24 @@
       display:grid;
       grid-template-columns:minmax(0,3fr) minmax(0,1fr);
       grid-template-rows:auto auto minmax(0,1fr);
-      grid-template-areas:"top controls" "player list" "now list";
+      grid-template-areas:"top list" "player list" "now list";
       column-gap:14px; row-gap:0;
       padding:calc(var(--stuck-top) + 10px) 14px 12px;
       overflow:hidden;
     }
     .pinned-top{display:contents}
-    /* Left column header: only SJTV LIVE and the playlist pill stay
-       here (the script moves the keep-screen-on and Menu buttons into
-       the right column), centred above the video. */
-    .topbar{grid-area:top; align-self:start; min-width:0; justify-content:center}
+    /* Left column header: SJTV LIVE stays here, centred above the
+       video (the script moves the keep-screen-on and Menu buttons
+       into the right column). The bar is given the height of the
+       right window's button band (10px controls padding + the 38px
+       buttons) so the header row reads as one line across the top.
+       The playlist pill is taken out of the centred stack and pinned
+       to the bar's right edge, vertically centred on that same band
+       — level with, and immediately before, the keep-screen-on
+       button in the right window. */
+    .topbar{grid-area:top; align-self:start; min-width:0; justify-content:center; position:relative; min-height:58px}
     .topbar .spacer{display:none}
+    #srcPill{position:absolute; right:0; top:50%; transform:translateY(-50%); max-width:40%}
     /* Right column header actions row: keep-screen-on + Menu, moved
        here by the script while the wide layout is active. */
     .head-actions{display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-bottom:8px}
@@ -426,17 +444,16 @@
       width:min(100%, max(300px, calc((100dvh - 210px) * 16 / 9)));
     }
     .chan-now{grid-area:now; align-self:start; min-width:0; margin-top:10px}
-    .chan-controls{
-      grid-area:controls; align-self:stretch; min-width:0;
-      background:var(--panel); border:1px solid var(--line); border-bottom:0;
-      border-radius:var(--radius) var(--radius) 0 0;
-      padding:10px 10px 2px;
-    }
+    /* The controls sit at the top of the channel section (the script
+       nests them there in this layout), so the section alone carries
+       the window's frame — full border and radius — and the controls
+       are a plain padded block inside it: button row, tabs, search. */
+    .chan-controls{min-width:0; padding:10px 10px 2px}
     .layout{grid-area:list; min-width:0; min-height:0; display:flex}
     section.chan-section{
       flex:1; min-width:0; min-height:0; display:flex; flex-direction:column;
-      background:var(--panel); border:1px solid var(--line); border-top:0;
-      border-radius:0 0 var(--radius) var(--radius); box-shadow:none;
+      background:var(--panel); border:1px solid var(--line);
+      border-radius:var(--radius); box-shadow:none;
     }
     .chan-panel-inline{flex:1; min-height:0; display:flex; flex-direction:column; padding:0 6px}
     .list{
@@ -1012,14 +1029,18 @@
     return !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
   }
   // Wide-layout DOM arrangement (see the wide-layout CSS comment):
-  // while the viewport is 1024px or wider, .topbar and .chan-controls
-  // are moved out of .pinned-top to be direct grid children of .wrap —
-  // WebKit does not reliably place display:contents children into
-  // named grid areas (on iPad Safari the header row and the
-  // All/Favorites tabs vanished from the wide layout entirely) — and
-  // the keep-screen-on and Menu buttons move into a .head-actions row
-  // at the top of the right column's controls, leaving SJTV LIVE and
-  // the playlist pill centred over the video in the left column.
+  // while the viewport is 1024px or wider, .topbar is moved out of
+  // .pinned-top to be a direct grid child of .wrap — WebKit does not
+  // reliably place display:contents children into named grid areas
+  // (on iPad Safari the header row and the All/Favorites tabs
+  // vanished from the wide layout entirely) — .chan-controls nests at
+  // the top of the channel section inside the right-hand window (as
+  // a row-1 grid item its height sized the shared first row and left
+  // a tall gap between the left column's header and the video), and
+  // the keep-screen-on and Menu buttons move into a .head-actions
+  // row at the top of those controls, leaving SJTV LIVE centred over
+  // the video in the left column and the playlist pill pinned to that
+  // column's top-right edge, just before the keep-screen-on button.
   // Below the breakpoint everything is moved back into .pinned-top in
   // its original order, so the phone layout's DOM is exactly what it
   // has always been. The moved elements keep their identity and their
@@ -1037,7 +1058,14 @@
     if (!pinnedTop || !wrap || !layout || !topbar || !chanControls || !wakeBtn || !menuBtn) return;
     if (wide){
       wrap.insertBefore(topbar, layout);
-      wrap.insertBefore(chanControls, layout);
+      // The list controls nest at the top of the channel section,
+      // inside the right-hand window, instead of sitting in the grid
+      // as a row-1 item: as a grid item their height sized the shared
+      // first row and pushed the video far below the SJTV LIVE
+      // header in the left column. Nested, they size no row at all.
+      var chanSection = layout.querySelector('section.chan-section');
+      if (chanSection) chanSection.insertBefore(chanControls, chanSection.firstChild);
+      else wrap.insertBefore(chanControls, layout);
       headActionsEl = document.createElement('div');
       headActionsEl.className = 'head-actions';
       headActionsEl.appendChild(wakeBtn);
