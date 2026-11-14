@@ -2566,14 +2566,19 @@
     var pr = menuPanelEl && !menuPanelEl.hidden ? menuPanelEl.getBoundingClientRect() : null;
     if (pr && pr.width > 0){
       var w = Math.round(pr.width);
+      var dh = Math.round(w * 9 / 16);
       stage.style.width = w + 'px';
-      stage.style.height = Math.round(w * 9 / 16) + 'px';
+      stage.style.height = dh + 'px';
       stage.style.left = Math.round(pr.left) + 'px';
-      // bottom offset that puts the dock's top edge exactly on the
-      // panel's bottom edge. When the panel already reaches the
-      // bottom of the screen this is ~0 and the dock simply sits at
-      // the screen bottom against the panel — never a gap.
-      stage.style.bottom = Math.max(0, Math.round(window.innerHeight - pr.bottom)) + 'px';
+      // Bottom offset that puts the dock's TOP edge exactly on the
+      // panel's bottom edge: the space below the panel minus the
+      // dock's own height. The dock must hang BELOW the panel, never
+      // overlap it — the panel (z 48) paints above the player panel's
+      // stacking context (z 1), so any part of the dock lying over
+      // the panel is covered by it and the dock looks missing. When
+      // the panel already reaches the bottom of the screen the
+      // offset clamps to ~0 and the dock sits at the screen bottom.
+      stage.style.bottom = Math.max(0, Math.round(window.innerHeight - pr.bottom - dh)) + 'px';
       return;
     }
     var s = stuckSize();
