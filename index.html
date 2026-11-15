@@ -222,6 +222,7 @@
   }
   .stage.menu-dock .tapzone,
   .stage.menu-dock .stage-fs,
+  .stage.menu-dock .stage-mute,
   .stage.menu-dock .tapplay,
   .stage.menu-dock .soundpill{display:none}
 
@@ -230,9 +231,26 @@
   .stage-fs:active{transform:scale(.94)}
   .stage-fs.on{background:var(--accent); border-color:var(--accent-dark)}
 
+  /* Mute toggle: bottom-LEFT corner of the stage, mirroring the
+     fullscreen button at the bottom-right — same size, border and
+     backing. The .on state (accent fill, like the fullscreen
+     button's active state) plus the slashed speaker icon mark the
+     muted state; the plain button with the waved speaker icon is
+     unmuted. It shares the fullscreen button's visibility treatment:
+     shown only while the stage controls are on. */
+  .stage-mute{position:absolute; left:12px; bottom:12px; z-index:7; width:50px; height:50px; border-radius:12px; border:1px solid rgba(255,255,255,.4); background:rgba(10,12,14,.66); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
+  .stage-mute svg{width:23px; height:23px}
+  .stage-mute:active{transform:scale(.94)}
+  .stage-mute.on{background:var(--accent); border-color:var(--accent-dark)}
+  .stage-mute .ic-muted{display:none}
+  .stage-mute.on .ic-muted{display:block}
+  .stage-mute.on .ic-sound{display:none}
+
   .stage .stage-fs{opacity:0; pointer-events:none; transition:opacity .25s}
   .stage.controls-on .stage-fs, .stage .stage-fs:focus-visible{opacity:1; pointer-events:auto}
-  @media (prefers-reduced-motion: reduce){ .stage .stage-fs{transition:none} }
+  .stage .stage-mute{opacity:0; pointer-events:none; transition:opacity .25s}
+  .stage.controls-on .stage-mute, .stage .stage-mute:focus-visible{opacity:1; pointer-events:auto}
+  @media (prefers-reduced-motion: reduce){ .stage .stage-fs{transition:none} .stage .stage-mute{transition:none} }
 
   .stage video{width:100%; height:100%; display:block; background:#000; object-fit:contain}
 
@@ -535,6 +553,10 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.3 5h2.2v14h-2.2zM4.5 5.6v12.8L15 12z"/></svg>
           </button>
         </div>
+        <button class="stage-mute" id="btnMuteStage" type="button" title="Mute — keep every channel muted" aria-label="Mute" aria-pressed="false">
+          <svg class="ic-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>
+          <svg class="ic-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+        </button>
         <button class="stage-fs" id="btnFsStage" type="button" title="Full screen" aria-label="Full screen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
         </button>
@@ -743,7 +765,8 @@
     nativeTried: false,
     hlsNetFails: 0,
     watchdogTimer: null,
-    interacted: false
+    interacted: false,
+    mutePref: false
   };
 
   var STORE_KEY = 'sjtv-state-v1';
@@ -757,6 +780,7 @@
       favorites: state.favorites,
       savedLists: state.savedLists,
       view: state.view,
+      muted: state.mutePref,
       nowUrl: state.now ? state.now.url : ''
     };
     try {
@@ -1229,11 +1253,18 @@
   }
   function hideTapPlay(){ $('tapPlay').classList.remove('on'); }
   function tapPlayVisible(){ return $('tapPlay').classList.contains('on'); }
-  function showSoundPill(){ $('soundPill').classList.add('on'); }
+  function showSoundPill(){
+    // Never shown while the mute preference is on: that mute is the
+    // viewer's deliberate choice, not a blocked-autoplay state.
+    if (state.mutePref) return;
+    $('soundPill').classList.add('on');
+  }
   function hideSoundPill(){ $('soundPill').classList.remove('on'); }
 
   function endBoot(unmute){
-    if (unmute && boot.muted) video.muted = false;
+    // The stored mute preference outranks the boot unmute: while it
+    // is on, no path that ends the boot sequence may restore sound.
+    if (unmute && boot.muted && !state.mutePref) video.muted = false;
     boot.phase = 0;
     boot.muted = false;
     hideSoundPill();
@@ -1424,6 +1455,10 @@
     else if (remoteKeepMuted && video.muted && boot.muted){   }
     else endBoot(true);
     remoteKeepMuted = false;
+    // Mute preference: every load through here — channel switches,
+    // playlist loads, boot autoplay — starts muted while it is on,
+    // whatever the boot/remote paths above decided about sound.
+    if (state.mutePref) video.muted = true;
     state.index = i;
     state.now = ch;
     state.userPaused = false;
@@ -2148,6 +2183,28 @@
     hideSoundPill();
     if (video.paused && state.now && !state.userPaused) attemptPlay(playSeq, 'tap-for-sound');
   });
+  // Mute toggle (bottom-left of the stage): a persistent preference.
+  // While on, every channel load starts muted (see playChannel) and
+  // the "Tap for sound" pill stays hidden; toggling applies to the
+  // currently playing channel immediately, with no reload.
+  function syncMuteUI(){
+    var b = $('btnMuteStage');
+    if (!b) return;
+    b.classList.toggle('on', !!state.mutePref);
+    b.setAttribute('aria-pressed', state.mutePref ? 'true' : 'false');
+    b.setAttribute('aria-label', state.mutePref ? 'Unmute' : 'Mute');
+    b.title = state.mutePref ? 'Muted — tap for sound' : 'Mute — keep every channel muted';
+  }
+  function setMutePref(on){
+    state.mutePref = !!on;
+    video.muted = state.mutePref;
+    if (!state.mutePref) video.volume = 0.9;
+    hideSoundPill();
+    syncMuteUI();
+    saveState();
+    toast(state.mutePref ? 'Muted — channels will play without sound.' : 'Sound on.');
+  }
+  $('btnMuteStage').addEventListener('click', function(){ setMutePref(!state.mutePref); });
   // The tap zones ignore clicks inside the short window after a
   // fullscreen exit (see the exit guard at the swipe handler below):
   // the click Safari synthesises at the end of the swipe-down exit
@@ -2619,15 +2676,19 @@
   function firstInteraction(){
     if (state.interacted) return;
     state.interacted = true;
-    video.muted = false;
-    video.volume = 0.9;
+    if (!state.mutePref){
+      video.muted = false;
+      video.volume = 0.9;
+    }
     if (state.index >= 0 && video.paused && !state.userPaused) tryPlay();
   }
   document.addEventListener('pointerdown', function(){
     if (state.interacted || !isPlaying()) return;
     state.interacted = true;
-    video.muted = false;
-    video.volume = 0.9;
+    if (!state.mutePref){
+      video.muted = false;
+      video.volume = 0.9;
+    }
   });
   document.addEventListener('click', firstInteraction);
   document.addEventListener('keydown', function(e){
@@ -3434,6 +3495,7 @@
   if (saved){
     if (Array.isArray(saved.favorites)) state.favorites = saved.favorites;
     if (Array.isArray(saved.savedLists)) state.savedLists = saved.savedLists;
+    if (typeof saved.muted === 'boolean') state.mutePref = saved.muted;
 
     migrateChannelList(state.favorites);
     state.savedLists.forEach(function(l){ migrateChannelList(l && l.channels); });
@@ -3445,6 +3507,11 @@
     state.favorites = favDeduped;
   }
   renderSavedLists();
+  // The mute button shows the stored preference from the first paint;
+  // with it on, the boot launch below keeps the video muted (it starts
+  // muted on launch either way, and playChannel re-applies the
+  // preference on every load).
+  syncMuteUI();
 
   var bootListEntry = null;
   if (bootParams.list){
