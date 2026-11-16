@@ -764,7 +764,9 @@
     hlsNetFails: 0,
     watchdogTimer: null,
     interacted: false,
-    mutePref: false
+    mutePref: false,
+    msKey: '',
+    msRepublishDone: false
   };
 
   var STORE_KEY = 'sjtv-state-v1';
@@ -1461,6 +1463,7 @@
     state.now = ch;
     state.userPaused = false;
     state.switching = true;
+    state.msRepublishDone = false;
     // Publish the new channel's Media Session metadata BEFORE the old
     // stream is torn down, and keep reporting 'playing' across the
     // switch (see setMediaSession), so iOS doesn't hand Now Playing
@@ -1751,7 +1754,22 @@
     scheduleControlsHide();
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 
-    if (state.now) setMediaSession(state.now);
+    if (state.now){
+      // One forced republish per switch, now that the new stream is
+      // stable: if iOS dropped the metadata while the video src was
+      // being swapped, this restores the title and artwork — and
+      // because every later call for this channel is deduplicated
+      // (see setMediaSession), the artwork fetch this starts is the
+      // last one and can complete undisturbed. 'playing' also fires
+      // on buffering recoveries and resumes, so the flag keeps those
+      // from churning the metadata again.
+      if (!state.msRepublishDone){
+        state.msRepublishDone = true;
+        setMediaSession(state.now, true);
+      } else {
+        setMediaSession(state.now);
+      }
+    }
   });
   video.addEventListener('volumechange', function(){
 
@@ -1977,32 +1995,58 @@
     }
   }
 
-  function setMediaSession(ch){
+  function setMediaSession(ch, force){
     if (!('mediaSession' in navigator)) return;
 
-    try {
-      // Publish the channel logo as a single artwork entry claiming
-      // sizes '512x512', exactly as the pre-logo configuration had it
-      // (and as the app build still has it). Control Center displays
-      // the artwork with or without the claim, but the Bluetooth
-      // (AVRCP) cover-art path to the car needs the dimensions
-      // declared — without them iOS has nothing to advertise over
-      // Bluetooth and the car shows its generic icon. The type is
-      // included only when the logo URL's extension determines it.
-      var art = [];
-      if (ch.logo && /^https?:\/\/\S+$/i.test(ch.logo)){
-        var entry = { src: ch.logo, sizes: '512x512' };
-        if (/\.png(\?|#|$)/i.test(ch.logo)) entry.type = 'image/png';
-        else if (/\.jpe?g(\?|#|$)/i.test(ch.logo)) entry.type = 'image/jpeg';
-        art = [entry];
-      }
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: ch.name,
-        artist: 'SJTV LIVE',
-        album: ch.group || 'Live news',
-        artwork: art
-      });
-    } catch(e){}
+    // Publish each channel's metadata only ONCE per switch. This
+    // function used to build a brand-new MediaMetadata object on
+    // every call, and a single channel switch called it half a dozen
+    // times in quick succession: at the start of playChannel, again
+    // from updateNowPlaying, again at the end of playChannel, again
+    // from the 'pause'/'emptied' handlers the src teardown fires
+    // (via holdMediaSession), and again when 'playing' fired. Every
+    // assignment restarts iOS's asynchronous artwork fetch, so the
+    // fetch for the new channel's logo was cancelled and restarted
+    // over and over during the switch — the artwork showed briefly,
+    // then vanished and never settled, most visibly on the car's
+    // Bluetooth (AVRCP) display, which only takes the artwork once
+    // the fetch completes undisturbed. Now: if this channel's
+    // metadata is already the published one, only the playback
+    // state below is refreshed and the artwork fetch is left alone.
+    // The one deliberate exception is a single forced republish
+    // after the new stream is actually playing (see the 'playing'
+    // handler), in case iOS dropped the metadata while swapping
+    // the video src — after that the metadata is left untouched
+    // until the next switch.
+    var key = ch.name + '|' + (ch.logo || '') + '|' + (ch.group || '');
+    var alreadyPublished = false;
+    try { alreadyPublished = !force && state.msKey === key && !!navigator.mediaSession.metadata; } catch(e){}
+    if (!alreadyPublished){
+      try {
+        // Publish the channel logo as a single artwork entry claiming
+        // sizes '512x512', exactly as the pre-logo configuration had it
+        // (and as the app build still has it). Control Center displays
+        // the artwork with or without the claim, but the Bluetooth
+        // (AVRCP) cover-art path to the car needs the dimensions
+        // declared — without them iOS has nothing to advertise over
+        // Bluetooth and the car shows its generic icon. The type is
+        // included only when the logo URL's extension determines it.
+        var art = [];
+        if (ch.logo && /^https?:\/\/\S+$/i.test(ch.logo)){
+          var entry = { src: ch.logo, sizes: '512x512' };
+          if (/\.png(\?|#|$)/i.test(ch.logo)) entry.type = 'image/png';
+          else if (/\.jpe?g(\?|#|$)/i.test(ch.logo)) entry.type = 'image/jpeg';
+          art = [entry];
+        }
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: ch.name,
+          artist: 'SJTV LIVE',
+          album: ch.group || 'Live news',
+          artwork: art
+        });
+        state.msKey = key;
+      } catch(e){}
+    }
     try {
 
       // Across a channel switch, keep reporting 'playing' until the
