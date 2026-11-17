@@ -2952,6 +2952,16 @@
     var attempts = [];
     var did = driveIdFrom(direct);
 
+    // A Drive link pasted directly needs the same last-resort relay
+    // the short-link path arms. Google's download server answers 403
+    // to every browser fetch — it refuses requests the browser marks
+    // cross-site — so the Drive-direct and Direct routes below can
+    // never succeed from this page; only a server-side fetch can.
+    // Arm the relay against the Drive download URL (unless the
+    // short-link pre-step already armed it); tryNext spends it once,
+    // after every direct route has failed.
+    if (did && !opts.__relayUrl) opts.__relayUrl = driveDownloadUrl(did);
+
     var driveTried = {};
     if (did){
       driveTried[did] = 1;
@@ -2998,13 +3008,14 @@
     }
     function tryNext(){
       if (!queue.length){
-        // Relay last resort: a resolved short-link target that still
-        // cannot load directly (its host blocks browser fetches — the
-        // Google download server refusing cross-site requests is the
-        // known case) is fetched once through the allorigins /raw
-        // relay, which returns the playlist text fetched server-side.
-        // Armed only for short-link loads via opts.__relayUrl; never
-        // used for directly typed addresses.
+        // Relay last resort: a target that still cannot load
+        // directly (its host blocks browser fetches — the Google
+        // download server refusing cross-site requests is the known
+        // case) is fetched once through the allorigins /raw relay,
+        // which returns the playlist text fetched server-side.
+        // Armed via opts.__relayUrl — by the short-link pre-step for
+        // a resolved target, and above for any Drive link, pasted
+        // directly or reached through a short link.
         if (!relayTried && opts.__relayUrl){
           relayTried = true;
           queue.push({ method: 'Relay', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(opts.__relayUrl) });
