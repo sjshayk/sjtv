@@ -1815,9 +1815,12 @@
     // If the system itself paused the video while the audio
     // session is interrupted (a call taking over), record it as a
     // call pause even if the statechange handler has not run yet,
-    // so the end of the call resumes it.
+    // so the end of the call resumes it. Routed through
+    // noteAudioInterruption: iOS can also pause the element for a
+    // moment during the fullscreen -> PiP handover while the
+    // context reads 'interrupted', and that is not a call.
     if (!state.callPaused && !state.userPaused && audioCtx && audioCtx.state === 'interrupted'){
-      beginCallPause('audio-interruption');
+      noteAudioInterruption();
     }
     holdMediaSession();
   });
@@ -1889,9 +1892,33 @@
   //      to the audio session, every page gesture re-arms it, and
   //      a 700ms poll notices an 'interrupted' state even if the
   //      statechange event itself was missed.
+  //
+  // PiP regression from the fix above (swipe up from fullscreen
+  // stopped entering picture-in-picture): making the context a
+  // live session participant also made it interruptible by the
+  // fullscreen -> PiP handover itself. Swiping up ends fullscreen
+  // and backgrounds the page so the video can move to PiP, and
+  // that transition reconfigures the audio session — the context
+  // flips to 'interrupted' (and iOS may momentarily pause the
+  // element mid-handover) with no call anywhere. Before the
+  // silent loop the context sat suspended and inert, so nothing
+  // ever fired; now the statechange handler, the 700ms poll and
+  // the 'pause'-event check each recorded a call pause on the
+  // spot, beginCallPause exited PiP and paused the video, and
+  // the latched callPaused state then blocked tryAutoPip and
+  // attemptPlay while endCallPause deferred because the page was
+  // hidden — PiP could neither engage nor recover. The audio
+  // entry points now go through noteAudioInterruption below,
+  // which holds off while PiP is active or the handover is still
+  // settling and only records the pause if the interruption
+  // outlives the transition without PiP playing. A genuine call
+  // in the foreground (page visible, no PiP, no recent fullscreen
+  // exit) still pauses immediately, exactly as above.
   var audioCtx = null;
   var callPauseHiddenTimer = null;
   var callResumeTimer = null;
+  var audioPipGuardTimer = null;
+  var lastHiddenForPipAt = 0;
   function armAudioInterruptions(){
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
@@ -1901,7 +1928,7 @@
         audioCtx.addEventListener('statechange', onAudioInterruption);
         // Non-standard interruption events where a browser offers
         // them; statechange above is the portable path.
-        try { audioCtx.addEventListener('interruptionstart', function(){ beginCallPause('audio-interruption'); }); } catch(e){}
+        try { audioCtx.addEventListener('interruptionstart', function(){ noteAudioInterruption(); }); } catch(e){}
         try { audioCtx.addEventListener('interruptionend', function(){ endCallPause('audio-interruption-ended'); }); } catch(e){}
         // Keep the context actually rendering: a looping silent
         // buffer through a zero gain. A context that renders
@@ -1935,6 +1962,7 @@
     state.callPausedUrl = '';
     state.callPauseReason = '';
     clearTimeout(callResumeTimer);
+    clearTimeout(audioPipGuardTimer);
   }
   function beginCallPause(reason){
     if (!state.now || video.ended) return;
@@ -2017,9 +2045,56 @@
       reloadCurrentChannel();
     }, 4200);
   }
+  // The one gate every audio-interruption signal passes through
+  // (statechange, interruptionstart, the detection poll, and the
+  // video 'pause' check). An 'interrupted' context is a call only
+  // when it is not the fullscreen -> PiP handover talking: that
+  // handover ends fullscreen and hides the page within the same
+  // gesture that engages PiP, and it interrupts the live context
+  // as the audio session is reconfigured. So while PiP is active,
+  // or fullscreen was exited / the page hidden in the last 2.5s,
+  // the pause is deferred 1.5s and re-checked:
+  //   - context no longer 'interrupted' -> the handover passed;
+  //     nothing to pause for.
+  //   - PiP active and the video playing -> playback settled
+  //     into PiP; a call does not leave PiP playing (iOS stops
+  //     the element when a call takes the session), so this is
+  //     the transition, not a call.
+  //   - anything else (context still interrupted and the video
+  //     stopped, or no PiP at all) -> a genuine interruption
+  //     that happened to land near a transition; record it.
+  // With no PiP and no recent transition — the incoming-call
+  // banner case this detection exists for — the pause is
+  // recorded immediately, unchanged.
+  function pipHandoverInProgress(){
+    try { if (pipIsActive()) return true; } catch(e){}
+    var now = Date.now();
+    if (lastFsExitAt > 0 && now - lastFsExitAt < 2500) return true;
+    if (lastHiddenForPipAt > 0 && now - lastHiddenForPipAt < 2500) return true;
+    return false;
+  }
+  function noteAudioInterruption(){
+    if (state.callPaused || state.userPaused || !state.now) return;
+    if (!pipHandoverInProgress()){ beginCallPause('audio-interruption'); return; }
+    // Arm the deferred re-check ONCE, never re-arm it: the 700ms
+    // poll re-enters here on every tick while the context stays
+    // 'interrupted', and resetting the timer each tick would
+    // push the re-check out indefinitely — a genuine call that
+    // stops the video during PiP would then never be recorded.
+    // Once the pending check has run, a later signal may arm a
+    // fresh one.
+    if (audioPipGuardTimer) return;
+    audioPipGuardTimer = setTimeout(function(){
+      audioPipGuardTimer = null;
+      if (state.callPaused || state.userPaused || !state.now) return;
+      if (!audioCtx || audioCtx.state !== 'interrupted') return;
+      try { if (pipIsActive() && !video.paused && !video.ended) return; } catch(e){}
+      beginCallPause('audio-interruption');
+    }, 1500);
+  }
   function onAudioInterruption(){
     if (!audioCtx) return;
-    if (audioCtx.state === 'interrupted'){ beginCallPause('audio-interruption'); return; }
+    if (audioCtx.state === 'interrupted'){ noteAudioInterruption(); return; }
     if (audioCtx.state === 'running' && state.callPaused) endCallPause('audio-restored');
   }
   // Detection poll, the mirror of the resume poll below: if the
@@ -2030,7 +2105,7 @@
   setInterval(function(){
     if (state.callPaused || state.userPaused || !state.now) return;
     if (!audioCtx || audioCtx.state !== 'interrupted') return;
-    beginCallPause('audio-interruption');
+    noteAudioInterruption();
   }, 700);
   // Safety net for the audio path: on some iOS versions the context
   // settles back to 'suspended' (not 'running') when a call ends,
@@ -2079,7 +2154,7 @@
     callResumeTimer = setTimeout(function(){ endCallPause(reason); }, 250);
   }
   document.addEventListener('visibilitychange', function(){
-    if (document.hidden) onPageHiddenForCall('hidden');
+    if (document.hidden){ lastHiddenForPipAt = Date.now(); onPageHiddenForCall('hidden'); }
     else onPageBackForCall('visible');
   });
   window.addEventListener('blur', function(){ onPageHiddenForCall('blur'); });
