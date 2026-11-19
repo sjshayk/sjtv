@@ -1301,7 +1301,16 @@
 
   var lastPlayAt = 0;
   function attemptPlay(seq, why){
-    if (seq !== playSeq || state.userPaused || !state.now) return;
+    // A call pause blocks EVERY automatic play path. This guard is
+    // the choke point the element listeners below made necessary:
+    // 'canplay' / 'loadedmetadata' call attemptPlay with the live
+    // global playSeq, so beginCallPause's playSeq++ did not stop
+    // them — during a call the native-HLS readyState dips and
+    // recovers, 'canplay' fired, and playback restarted mid-call
+    // seconds after the interruption pause. Deliberate viewer taps
+    // are unaffected: togglePlay / tryPlay / the tap overlays clear
+    // the call-pause state before they reach this function.
+    if (seq !== playSeq || state.userPaused || state.callPaused || !state.now) return;
     if (isPlaying()) return;
 
     if (playPending && Date.now() - playPendingAt < 1200) return;
@@ -1855,6 +1864,31 @@
   //     starts playing in the background mid-call.
   // A deliberate pause by the viewer always wins: if userPaused is
   // set, no call pause is recorded and nothing auto-resumes.
+  //
+  // Follow-up (incoming-call test still played through the call):
+  // two more faults sat underneath the three above.
+  //   4. attemptPlay had no callPaused check. The permanent
+  //      'canplay' / 'loadedmetadata' element listeners call it
+  //      with the live global playSeq, so the playSeq++ in
+  //      beginCallPause did not invalidate them. On iPhone (native
+  //      HLS) the readyState dips during a call and recovers,
+  //      'canplay' fired, and the stream restarted mid-call —
+  //      the pause happened and was undone within seconds, which
+  //      reads as "never paused". attemptPlay now refuses to run
+  //      while a call pause is recorded; deliberate taps clear
+  //      that state first and still work.
+  //   5. The AudioContext was only ever resumed from inside
+  //      attemptPlay / the 'playing' handler. When playback had
+  //      been started by autoplay or stream events, no user
+  //      gesture was in the call stack, iOS kept the context in
+  //      'suspended', and a suspended context is never
+  //      interrupted — so for an incoming call taken from the
+  //      banner (page visible and focused throughout: no hidden,
+  //      no blur, no freeze) NO signal existed at all. The
+  //      context now renders a silent loop so it truly belongs
+  //      to the audio session, every page gesture re-arms it, and
+  //      a 700ms poll notices an 'interrupted' state even if the
+  //      statechange event itself was missed.
   var audioCtx = null;
   var callPauseHiddenTimer = null;
   var callResumeTimer = null;
@@ -1869,6 +1903,25 @@
         // them; statechange above is the portable path.
         try { audioCtx.addEventListener('interruptionstart', function(){ beginCallPause('audio-interruption'); }); } catch(e){}
         try { audioCtx.addEventListener('interruptionend', function(){ endCallPause('audio-interruption-ended'); }); } catch(e){}
+        // Keep the context actually rendering: a looping silent
+        // buffer through a zero gain. A context that renders
+        // nothing is a weak interruption target — iOS can leave it
+        // out of the audio session entirely, and a context stuck
+        // in 'suspended' is never interrupted at all, so an
+        // incoming call fires no event and SJTV plays straight
+        // through it. A rendering context belongs to the session,
+        // so a call takes it over and the statechange above fires.
+        try {
+          var silenceBuf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+          var silenceSrc = audioCtx.createBufferSource();
+          silenceSrc.buffer = silenceBuf;
+          silenceSrc.loop = true;
+          var silenceGain = audioCtx.createGain();
+          silenceGain.gain.value = 0;
+          silenceSrc.connect(silenceGain);
+          silenceGain.connect(audioCtx.destination);
+          silenceSrc.start();
+        } catch(e){}
       }
       if (audioCtx.state === 'suspended' && !state.callPaused){
         var r = audioCtx.resume();
@@ -1969,6 +2022,16 @@
     if (audioCtx.state === 'interrupted'){ beginCallPause('audio-interruption'); return; }
     if (audioCtx.state === 'running' && state.callPaused) endCallPause('audio-restored');
   }
+  // Detection poll, the mirror of the resume poll below: if the
+  // statechange event was missed or coalesced while the context
+  // moved to 'interrupted', notice it here instead of playing
+  // through the whole call. beginCallPause re-checks that playback
+  // was actually live, so a stray poll hit cannot invent a pause.
+  setInterval(function(){
+    if (state.callPaused || state.userPaused || !state.now) return;
+    if (!audioCtx || audioCtx.state !== 'interrupted') return;
+    beginCallPause('audio-interruption');
+  }, 700);
   // Safety net for the audio path: on some iOS versions the context
   // settles back to 'suspended' (not 'running') when a call ends,
   // and no further statechange fires until it is resumed. While a
@@ -2035,6 +2098,18 @@
     var a = t && t.closest ? t.closest('a[href^="tel:"], a[href^="facetime:"], a[href^="facetime-audio:"]') : null;
     if (a) beginCallPause('outgoing-call-link');
   }, true);
+  // The context only reaches 'running' when resume() is called
+  // inside a real user gesture. Playback started by autoplay, by a
+  // ?channel= launch, or by stream events never provides one, so
+  // the context sat in 'suspended' — and iOS never interrupts a
+  // suspended context, which left an incoming call (banner up, page
+  // still visible and focused, no visibility/blur signal at all)
+  // with no working detector. Re-arm on every gesture anywhere on
+  // the page, so by the time any call can arrive the context is
+  // running and interruptible.
+  ['pointerdown', 'touchend'].forEach(function(evtName){
+    document.addEventListener(evtName, function(){ armAudioInterruptions(); }, { capture: true, passive: true });
+  });
 
   function onStreamDead(reason){
     if (state.callPaused) return;
@@ -2400,7 +2475,8 @@
   }, { passive: false });
 
   $('tapPlay').addEventListener('click', function(){
-
+    // A deliberate tap overrides a call pause (see attemptPlay).
+    clearCallPauseState();
     state.userPaused = false;
     endBoot(true);
     hideTapPlay();
@@ -2420,7 +2496,8 @@
     attemptPlay(playSeq, 'tap-to-play');
   });
   $('soundPill').addEventListener('click', function(){
-
+    // A deliberate tap overrides a call pause (see attemptPlay).
+    clearCallPauseState();
     video.muted = false;
     video.volume = 0.9;
     state.interacted = true;
