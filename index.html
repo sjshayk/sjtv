@@ -766,7 +766,11 @@
     interacted: false,
     mutePref: false,
     msKey: '',
-    msRepublishDone: false
+    msRepublishDone: false,
+    callPaused: false,
+    callPausedAt: 0,
+    callPausedUrl: '',
+    callPauseReason: ''
   };
 
   var STORE_KEY = 'sjtv-state-v1';
@@ -1303,7 +1307,7 @@
     if (playPending && Date.now() - playPendingAt < 1200) return;
     lastPlayAt = Date.now();
 
-    if (!video.muted) armAudioInterruptions();
+    armAudioInterruptions();
     playPending = true;
     playPendingAt = Date.now();
     var token = ++playAttemptSeq;
@@ -1462,6 +1466,7 @@
     state.index = i;
     state.now = ch;
     state.userPaused = false;
+    clearCallPauseState();
     state.switching = true;
     state.msRepublishDone = false;
     // Publish the new channel's Media Session metadata BEFORE the old
@@ -1643,7 +1648,7 @@
   }
 
   function tryPlay(keepMuted){
-
+    clearCallPauseState();
     if (!(keepMuted && video.muted && boot.muted)) endBoot(true);
 
     playPending = false;
@@ -1678,6 +1683,7 @@
 
   var LONG_PAUSE_MS = 45000;
   function resumeRemote(){
+    clearCallPauseState();
     state.userPaused = false;
     playPending = false;
     var ch = state.now;
@@ -1735,7 +1741,12 @@
   video.addEventListener('playing', function(){
     spinner.classList.remove('on');
     showStageMsg('', false);
-
+    // Keep an audio context alive while anything plays — muted
+    // playback included — so iOS has a session whose interruption
+    // a call (incoming or outgoing) can signal to the handler
+    // below. Without a live context there is nothing to interrupt
+    // and a muted stream plays straight through a call.
+    armAudioInterruptions();
     state.playingSince = Date.now();
     state.pausedAt = 0;
     clearTimeout(state.skipTimer);
@@ -1792,7 +1803,13 @@
     updatePlayIcon();
     showControls();
     state.pausedAt = Date.now();
-
+    // If the system itself paused the video while the audio
+    // session is interrupted (a call taking over), record it as a
+    // call pause even if the statechange handler has not run yet,
+    // so the end of the call resumes it.
+    if (!state.callPaused && !state.userPaused && audioCtx && audioCtx.state === 'interrupted'){
+      beginCallPause('audio-interruption');
+    }
     holdMediaSession();
   });
   video.addEventListener('emptied', function(){
@@ -1801,7 +1818,46 @@
   });
   video.addEventListener('ended', function(){ nextChannel(); });
 
+  // Call interruptions — incoming AND outgoing.
+  // The old handler had three faults that together meant a call
+  // never cleanly paused and resumed SJTV:
+  //   1. It returned early for muted video. SJTV very often plays
+  //      muted (muted autoplay, the mute preference), and a muted
+  //      stream has no audio for iOS to duck — so it simply kept
+  //      playing, picture and all, right through the call. A call
+  //      must pause the picture regardless of sound.
+  //   2. It returned early for the first 5 seconds of playback, so
+  //      a call arriving just after a channel started was ignored.
+  //   3. It set state.userPaused = true — the deliberate-pause flag.
+  //      Every auto-play path in this file refuses to run while
+  //      that flag is set, so the pause could never be undone
+  //      automatically; and nothing listened for the interruption
+  //      ENDING at all, so there was no resume to undo it with.
+  // The fix keeps a call pause in its OWN state (state.callPaused),
+  // never touches userPaused, and listens for the end of the call
+  // on every signal a browser page can actually observe:
+  //   - AudioContext 'interrupted' -> 'running'/'suspended':
+  //     iOS fires this when the phone's audio session is taken by
+  //     a call — incoming or outgoing, cellular or FaceTime — and
+  //     again when the session is handed back at call end. It is
+  //     the only signal that fires while SJTV stays in the
+  //     foreground (incoming-call banner, Siri, answered call).
+  //   - Page hidden / window blur / freeze: placing an outgoing
+  //     call means leaving SJTV for the Phone app (or a tel: /
+  //     FaceTime link), and an incoming call taken full-screen
+  //     hides the page the same way. Pausing there covers the
+  //     outgoing direction even before the call connects and the
+  //     audio session changes.
+  //   - Page visible / focus / pageshow / resume: the counterpart
+  //     — returning to SJTV after the call is the moment to play
+  //     again. A resume is deferred while the page is still hidden
+  //     or the audio session is still interrupted, so SJTV never
+  //     starts playing in the background mid-call.
+  // A deliberate pause by the viewer always wins: if userPaused is
+  // set, no call pause is recorded and nothing auto-resumes.
   var audioCtx = null;
+  var callPauseHiddenTimer = null;
+  var callResumeTimer = null;
   function armAudioInterruptions(){
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
@@ -1809,24 +1865,53 @@
       if (!audioCtx){
         audioCtx = new AC();
         audioCtx.addEventListener('statechange', onAudioInterruption);
+        // Non-standard interruption events where a browser offers
+        // them; statechange above is the portable path.
+        try { audioCtx.addEventListener('interruptionstart', function(){ beginCallPause('audio-interruption'); }); } catch(e){}
+        try { audioCtx.addEventListener('interruptionend', function(){ endCallPause('audio-interruption-ended'); }); } catch(e){}
       }
-      if (audioCtx.state === 'suspended'){
-
+      if (audioCtx.state === 'suspended' && !state.callPaused){
         var r = audioCtx.resume();
         if (r && typeof r.catch === 'function') r.catch(function(){});
       }
     } catch(e){}
   }
-  function onAudioInterruption(){
-    if (!audioCtx || audioCtx.state !== 'interrupted') return;
-    if (video.paused || video.ended || !state.now) return;
-
-    if (video.muted) return;
-
-    if (!state.playingSince || Date.now() - state.playingSince < 5000) return;
-    playLog('audio interruption began — pausing playback');
-    state.userPaused = true; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
-
+  function clearCallPauseState(){
+    state.callPaused = false;
+    state.callPausedAt = 0;
+    state.callPausedUrl = '';
+    state.callPauseReason = '';
+    clearTimeout(callResumeTimer);
+  }
+  function beginCallPause(reason){
+    if (!state.now || video.ended) return;
+    if (state.userPaused) return;
+    if (state.callPaused){
+      try { if (!video.paused) video.pause(); } catch(e){}
+      return;
+    }
+    var wasPlaying = !video.paused && !video.ended;
+    // iOS may pause the element itself when a call arrives, before
+    // any handler runs. That system pause (played, not deliberately
+    // paused, a channel loaded) is still a call pause to resume
+    // from — not a reason to do nothing.
+    var systemPaused = video.paused && state.playedThisSwitch && !!state.playingSince;
+    if (!wasPlaying && !systemPaused) return;
+    state.callPaused = true;
+    state.callPausedAt = Date.now();
+    state.callPausedUrl = state.now.url;
+    state.callPauseReason = reason || 'call';
+    playLog('call interruption (' + state.callPauseReason + ') — pausing playback; will resume when the call ends');
+    // Cancel in-flight play/watchdog work so nothing restarts the
+    // stream mid-call, but leave userPaused untouched: this is not
+    // a deliberate pause, and the resume paths must stay unblocked.
+    playSeq++; clearPlayTimers(); hideTapPlay();
+    clearTimeout(state.watchdogTimer);
+    clearTimeout(state.skipTimer);
+    try { if (pipIsActive()) exitPip(); } catch(e){}
+    try { video.pause(); } catch(e){}
+    spinner.classList.remove('on');
+    showStageMsg('Paused for a call — playback will resume when the call ends', false);
     if ('mediaSession' in navigator){
       try {
         if (!navigator.mediaSession.metadata && state.now) setMediaSession(state.now);
@@ -1834,9 +1919,125 @@
       } catch(e){}
     }
   }
+  function endCallPause(reason){
+    if (!state.callPaused) return;
+    if (state.userPaused){ clearCallPauseState(); return; }
+    if (!state.now || (state.callPausedUrl && state.now.url !== state.callPausedUrl)){ clearCallPauseState(); return; }
+    if (document.hidden) {
+      playLog('call ended (' + reason + ') but SJTV is still hidden — resume deferred until it is visible again');
+      return;
+    }
+    if (audioCtx && audioCtx.state === 'interrupted') return;
+    var pausedFor = state.callPausedAt ? (Date.now() - state.callPausedAt) : 0;
+    var ch = state.now;
+    clearCallPauseState();
+    showStageMsg('', false);
+    playLog('call ended (' + reason + ') after ' + pausedFor + 'ms — resuming ' + ch.name);
+    if (audioCtx && audioCtx.state === 'suspended'){
+      try { var rr = audioCtx.resume(); if (rr && typeof rr.catch === 'function') rr.catch(function(){}); } catch(e){}
+    }
+    // A long call expires the live position, exactly like a long
+    // remote pause: reload the channel rather than play a stale
+    // position that will stall.
+    if (pausedFor > LONG_PAUSE_MS){
+      remoteKeepMuted = true;
+      if (reloadCurrentChannel()) return;
+    }
+    state.userPaused = false;
+    try { seekToLiveEdge(); publishResumeSession(); } catch(e){}
+    attemptPlay(playSeq, 'call-ended');
+    [400, 1200, 2500].forEach(function(ms){
+      setTimeout(function(){
+        if (state.userPaused || state.callPaused) return;
+        if (!state.now || state.now !== ch) return;
+        if (isPlaying() || !video.paused) return;
+        try { seekToLiveEdge(); } catch(e){}
+        attemptPlay(playSeq, 'call-ended-retry');
+      }, ms);
+    });
+    setTimeout(function(){
+      if (state.userPaused || state.callPaused) return;
+      if (!state.now || state.now !== ch) return;
+      if (isPlaying() || !video.paused) return;
+      playLog('call resume did not take — reloading ' + ch.name);
+      remoteKeepMuted = true;
+      reloadCurrentChannel();
+    }, 4200);
+  }
+  function onAudioInterruption(){
+    if (!audioCtx) return;
+    if (audioCtx.state === 'interrupted'){ beginCallPause('audio-interruption'); return; }
+    if (audioCtx.state === 'running' && state.callPaused) endCallPause('audio-restored');
+  }
+  // Safety net for the audio path: on some iOS versions the context
+  // settles back to 'suspended' (not 'running') when a call ends,
+  // and no further statechange fires until it is resumed. While a
+  // call pause is outstanding and SJTV is back in the foreground,
+  // revive the context and, once it is no longer interrupted,
+  // resume the video.
+  setInterval(function(){
+    if (!state.callPaused) return;
+    if (document.hidden) return;
+    if (audioCtx && audioCtx.state === 'interrupted') return;
+    if (state.callPauseReason !== 'audio-interruption') return;
+    if (document.hasFocus && !document.hasFocus()) return;
+    if (audioCtx && audioCtx.state === 'suspended'){
+      try { var pr = audioCtx.resume(); if (pr && typeof pr.catch === 'function') pr.catch(function(){}); } catch(e){}
+      return;
+    }
+    endCallPause('audio-poll');
+  }, 1000);
+  function onPageHiddenForCall(reason){
+    if (!state.now || video.ended || state.userPaused || state.callPaused) return;
+    // Already paused by the system while hiding (a call taking
+    // over does this): record it now, no grace window needed.
+    if (video.paused){
+      if (state.playedThisSwitch && state.playingSince) beginCallPause(reason);
+      return;
+    }
+    try { if (pipIsActive()) return; } catch(e){}
+    clearTimeout(callPauseHiddenTimer);
+    callPauseHiddenTimer = setTimeout(function(){
+      // Picture-in-picture is deliberate background playback: if it
+      // engaged during the grace window, leave it alone here — the
+      // audio-interruption path above still pauses it the moment
+      // an actual call takes the audio session.
+      try { if (pipIsActive()) return; } catch(e){}
+      if (reason === 'blur'){
+        if (!document.hidden && document.hasFocus && document.hasFocus()) return;
+      } else if (!document.hidden) return;
+      beginCallPause(reason);
+    }, 350);
+  }
+  function onPageBackForCall(reason){
+    clearTimeout(callPauseHiddenTimer);
+    if (!state.callPaused) return;
+    clearTimeout(callResumeTimer);
+    callResumeTimer = setTimeout(function(){ endCallPause(reason); }, 250);
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) onPageHiddenForCall('hidden');
+    else onPageBackForCall('visible');
+  });
+  window.addEventListener('blur', function(){ onPageHiddenForCall('blur'); });
+  window.addEventListener('focus', function(){ onPageBackForCall('focus'); });
+  window.addEventListener('pageshow', function(){ onPageBackForCall('pageshow'); });
+  document.addEventListener('resume', function(){ onPageBackForCall('resume'); });
+  document.addEventListener('freeze', function(){ beginCallPause('freeze'); });
+  window.addEventListener('pagehide', function(){
+    try { if (pipIsActive()) return; } catch(e){}
+    beginCallPause('pagehide');
+  });
+  // Tapping a call link is an outgoing call started from the page
+  // itself: pause before the Phone app even opens.
+  document.addEventListener('click', function(e){
+    var t = e && e.target;
+    var a = t && t.closest ? t.closest('a[href^="tel:"], a[href^="facetime:"], a[href^="facetime-audio:"]') : null;
+    if (a) beginCallPause('outgoing-call-link');
+  }, true);
 
   function onStreamDead(reason){
-
+    if (state.callPaused) return;
     if (fallbackToNative()) return;
     var ch = state.now || state.channels[state.index];
     if (!ch) return;
@@ -1903,10 +2104,11 @@
       return;
     }
     if (video.paused){
+      clearCallPauseState();
       state.userPaused = false;
       tryPlay();
     } else {
-
+      clearCallPauseState();
       state.userPaused = true;
       playSeq++;
       clearPlayTimers();
@@ -2075,6 +2277,7 @@
   }
 
   function pauseDeliberately(){
+    clearCallPauseState();
     state.userPaused = true; state.switching = false; playSeq++; clearPlayTimers(); hideTapPlay(); video.pause();
     holdMediaSession();
   }
@@ -2543,6 +2746,7 @@
   function resetAutoPipLatch(){ autoPipLatched = false; }
   function tryAutoPip(){
     try {
+      if (state.callPaused) return;
       if (autoPipLatched) return;
       if (!state.now || video.paused || video.ended) return;
       if (pipIsActive()) return;
