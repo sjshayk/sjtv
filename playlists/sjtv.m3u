@@ -1,0 +1,79 @@
+#EXTM3U
+#EXTINF:-1 tvg-logo="http://pluspng.com/img-png/al-jazeera-png-al-jazeera-logo-1431.png" group-title="World News",Aljazeera English
+https://live-hls-web-aje-gcp.thehlive.com/AJE/index.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/65d92a8c8b24c80008e285c0/colorLogoPNG.png" group-title="News + Opinion",BBC News
+https://jmp2.uk/plu-65d92a8c8b24c80008e285c0.m3u8
+#EXTINF:-1 tvg-logo="https://seeklogo.com/images/B/bbc-news-logo-8648ABD044-seeklogo.com.png" group-title="World News",BBC World News
+https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/A1xzjOI.png" group-title="World News",DW English
+https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/8t9mdg9.png" group-title="World News",Euronews English
+https://streams.sofast.tv/euronewsen/live/eds/euronews-en/25017/euronews-en.m3u8
+#EXTINF:-1 tvg-logo="https://iconape.com/wp-content/png_logo_vector/france-24-logo.png" group-title="World News",France 24
+https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://cdn.imgbin.com/23/15/21/imgbin-rt-russia-google-news-whataboutism-russia-JmKqcZN1MCUwQpZVFE7abf5da.jpg" group-title="World News",RT
+https://rt-glb.rttv.com/dvr/rtnews/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/55b285cd2665de274553d66f/colorLogoPNG.png" group-title="News + Opinion",Sky News
+https://jmp2.uk/plu-55b285cd2665de274553d66f.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5421f71da6af422839419cb3/colorLogoPNG_1755034025681.png" group-title="News + Opinion",CNN HEADLINES
+https://jmp2.uk/plu-5421f71da6af422839419cb3.m3u8
+#EXTINF:-1 tvg-logo="https://provider-static.plex.tv/epg/cms/production/8cf9c131-2d92-4d91-86b1-22ef458d703f/reuters_reutersnow_1RDX.png" group-title="World News",Reuters TV
+https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playlist/amg00453-reuters-reuters-rakutenuk/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/SjTdhvJ.png" group-title="World News",CBC News
+https://d2ny9lo79ujali.cloudfront.net/CBC_News_International.m3u8
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Press_TV_logo.svg/960px-Press_TV_logo.svg.png" group-title="World News",Press TV
+https://live.presstv.co.uk/hls/presstv.m3u8
+#EXTINF:-1 tvg-logo="https://i.ibb.co/nP9xpck/trtw.png" group-title="World News",TRT World
+https://tv-trtworld.medya.trt.com.tr/master.m3u8
+#EXTINF:-1 tvg-logo="https://images.seeklogo.com/logo-png/22/1/al-arabiya-news-channel-logo-png_seeklogo-221044.png" group-title="World News",Al Arabiya English
+https://live.alarabiya.net/alarabiapublish/english/playlist_dvr.m3u8
+#EXTINF:-1 tvg-logo="https://image.xumo.com/v1/channels/channel/99991247/168x168.png?type=color_onBlack" group-title="US News",NBC NEWS 24/7
+https://livehub-voidnet.onrender.com/cluster/streamcore/us/NBC_REDIS.m3u8
+#EXTINF:-1 tvg-logo="https://logos-world.net/wp-content/uploads/2023/09/ABC-News-Emblem.png" group-title="US News",ABC News Live
+https://jmp2.uk/plu-6508be683a0d700008c534e4.m3u8
+#EXTINF:-1 tvg-logo="https://abn-prod.s3.amazonaws.com/wp-content/uploads/sites/3/2019/04/cbsnews400.jpg" group-title="US News",CBS News
+https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8?iu=/8264/vaw-can/mobile_web/cbsnews_mobile
+#EXTINF:-1 tvg-logo="https://image-resizer-cloud-cdn.api.cms.amdvids.com/image/84B4B00D-7E28-4343-91AE-818E08855A0B/3-1x1.png" group-title="US News",Local Now Washington, DC
+https://s4host2.localnow.api.cms.amdvids.com/v1/master/c189661feba961c19bc5fb60b57879ee9b84548a/config5/6382dce7bdc0a0da/4deb7a83cbe7b8d8/playlist.m3u8?ads.cdnhost=s4host2.localnow.api.cms.amdvids.com&ads.playbackid=84B4B00D-7E28-4343-91AE-818E08855A0B&ads.v3=84B4B00D-7E28-4343-91AE-818E08855A0B
+#EXTINF:-1 tvg-logo="https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/WRC-TV_2023.svg/960px-WRC-TV_2023.svg.png" group-title="US News",NBC Washington
+https://d368vp0qqzvkid.cloudfront.net/11603/88889708/hls/master.m3u8?ads.xumo_channelId=88889708a
+#EXTINF:-1 tvg-logo="https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Fts-washington-dc-a.svg/960px-Fts-washington-dc-a.svg.png" group-title="US News",WTTG Washington DC
+https://s11host1.localnow.api.cms.amdvids.com/v1/master/c189661feba961c19bc5fb60b57879ee9b84548a/config13/playlist.m3u8?ads.cdnhost=s11host1.localnow.api.cms.amdvids.com&ads.playbackid=71288921-B25D-4D64-84B0-EFE673C09A40&ads.v3=71288921-B25D-4D64-84B0-EFE673C09A40
+#EXTINF:-1 tvg-logo="https://thumb.wikimedia.org/wikipedia/commons/thumb/f/ff/WJLA_ABC_7_Fall_2021.svg/960px-WJLA_ABC_7_Fall_2021.svg.png" group-title="US News",WJLA Washington DC
+https://s8host5.localnow.api.cms.amdvids.com/v1/master/c189661feba961c19bc5fb60b57879ee9b84548a/config11/playlist.m3u8?ads.cdnhost=s8host5.localnow.api.cms.amdvids.com&ads.playbackid=22896CE3-637B-47CC-8701-2AE9299F8D55&ads.v3=22896CE3-637B-47CC-8701-2AE9299F8D55
+#EXTINF:-1 tvg-logo="https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/WUSA_9_2018_%28Stacked%29.svg/960px-WUSA_9_2018_%28Stacked%29.svg.png" group-title="US News",WUSA Washington DC
+https://s10host4.localnow.api.cms.amdvids.com/v1/master/c189661feba961c19bc5fb60b57879ee9b84548a/config13/wusa/24x7/index.m3u8?ads.cdnhost=s10host4.localnow.api.cms.amdvids.com&ads.playbackid=E15E8567-3216-4578-9900-44FAFEC66BD4&ads.v3=E15E8567-3216-4578-9900-44FAFEC66BD4
+#EXTINF:-1 tvg-logo="https://i.imgur.com/43oHsHL.png" group-title="Business",Yahoo! Finance
+https://d1ewctnvcwvvvu.cloudfront.net/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/CNBC_2025.svg/960px-CNBC_2025.svg.png" group-title="Business",CNBC UK (1080p)
+https://amg01079-nbcuuk-amg01079c2-samsung-gb-1258.playouts.now.amagi.tv/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/OuogLHx.png" group-title="Business",Bloomberg Television
+https://www.bloomberg.com/media-manifest/streams/us.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/54ff7ba69222cb1c2624c584/colorLogoPNG_1756948295813.png" group-title="News + Opinion",Bloomberg TV+
+https://jmp2.uk/plu-54ff7ba69222cb1c2624c584.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/63a0e33a45264d000850ed7e/colorLogoPNG.png" group-title="Sports",Golazo Network
+https://jmp2.uk/plu-63a0e33a45264d000850ed7e.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5a74b8e1e22a61737979c6bf/colorLogoPNG.png" group-title="Sports",FOX Sports
+https://jmp2.uk/plu-5a74b8e1e22a61737979c6bf.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5e9f2c05172a0f0007db4786/colorLogoPNG_1731837352945.png" group-title="Sports",CBS Sports HQ
+https://jmp2.uk/plu-5e9f2c05172a0f0007db4786.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/65ea8b928145cb0008509426/colorLogoPNG.png" group-title="Sports",UEFA Champions League
+https://jmp2.uk/plu-65ea8b928145cb0008509426.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5f32f26bcd8aea00071240e5/colorLogoPNG.png" group-title="Music Videos",Vevo '70s
+https://jmp2.uk/plu-5f32f26bcd8aea00071240e5.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5fd7b8bf927e090007685853/colorLogoPNG.png" group-title="Music Videos",Vevo '80s
+https://jmp2.uk/plu-5fd7b8bf927e090007685853.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5fd7bb1f86d94a000796e2c2/colorLogoPNG.png" group-title="Music Videos",Vevo '90s
+https://jmp2.uk/plu-5fd7bb1f86d94a000796e2c2.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5fd7bca3e0a4ee0007a38e8c/colorLogoPNG.png" group-title="Music Videos",Vevo 2K
+https://jmp2.uk/plu-5fd7bca3e0a4ee0007a38e8c.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5da0d75e84830900098a1ea0/colorLogoPNG.png" group-title="Music Videos",Vevo Country
+https://jmp2.uk/plu-5da0d75e84830900098a1ea0.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5d93b635b43dd1a399b39eee/colorLogoPNG.png" group-title="Music Videos",Vevo Pop
+https://jmp2.uk/plu-5d93b635b43dd1a399b39eee.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/5da0d83f66c9700009b96d0e/colorLogoPNG.png" group-title="Music Videos",Vevo R&B
+https://jmp2.uk/plu-5da0d83f66c9700009b96d0e.m3u8
+#EXTINF:-1 tvg-logo="https://images.pluto.tv/channels/61d4b38226b8a50007fe03a6/colorLogoPNG_1748797615724.png" group-title="Music Videos",Vevo Rock
+https://jmp2.uk/plu-61d4b38226b8a50007fe03a6.m3u8
+#EXTINF:-1 tvg-logo="https://github.com/fawazahmed0/tiger/raw/master/peace/urdu.jpg" group-title="Religious",Peace TV Urdu (1080p)
+https://dzkyvlfyge.erbvr.com/PeaceTvUrdu/index.m3u8
