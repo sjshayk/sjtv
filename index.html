@@ -175,6 +175,18 @@
   .menu-panel .panel-pad{padding:2px 2px 14px}
   .menu-panel .side section + section{border-top:1px solid var(--line); padding-top:14px}
 
+  /* While the Menu is open (phone layout), the SJTV LIVE mark in the
+     top bar is hidden: the name already sits at the top of the main
+     screen, so repeating it over the open Menu is redundant.
+     visibility (not display) keeps the bar's layout exactly as it
+     was, so the playlist pill and the buttons never shift when the
+     Menu opens or closes. setMenu toggles the body class. The wide
+     layout is untouched — there the mark sits centred over the
+     video column, not over the Menu. */
+  @media (max-width:1023.98px){
+    body.menu-open .topbar .live-dot{visibility:hidden}
+  }
+
   .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
   .panel-pad{padding:11px 12px}
 
@@ -3868,6 +3880,9 @@
   function setMenu(open){
     if (!menuPanelEl || !menuBtnEl) return;
     menuPanelEl.hidden = !open;
+    // Hides the top bar's SJTV LIVE mark while the Menu is open
+    // (see the body.menu-open rule in the Menu panel CSS above).
+    document.body.classList.toggle('menu-open', open);
     menuBtnEl.classList.toggle('active', open);
     menuBtnEl.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open){
