@@ -201,8 +201,8 @@
   /* Menu mini-player: while the Menu is open over a playing channel,
      the stage docks as a small fixed player floating above the open
      menu panel (z 48), so the video stays visible and controllable.
-     Only its mini-bar controls show — the big tap zones, fullscreen
-     button, tap-to-play and sound pill are hidden at this size.
+     Only its mini-bar controls show — the big tap zones, bottom
+     control bar, tap-to-play and sound pill are hidden at this size.
      Closing the Menu removes the class and the stage returns to its
      place in the sticky top block. JS sizes and places the dock to
      match the menu panel exactly — same width and left edge, top
@@ -221,48 +221,63 @@
     background:linear-gradient(to bottom, rgba(5,7,9,0), rgba(5,7,9,.85));
   }
   .stage.menu-dock .tapzone,
-  .stage.menu-dock .stage-fs,
-  .stage.menu-dock .stage-mute,
+  .stage.menu-dock .stage-bar,
   .stage.menu-dock .tapplay,
   .stage.menu-dock .soundpill{display:none}
 
-  .stage-fs{position:absolute; right:12px; bottom:12px; z-index:7; width:50px; height:50px; border-radius:12px; border:1px solid rgba(255,255,255,.4); background:rgba(10,12,14,.66); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
-  .stage-fs svg{width:23px; height:23px}
-  .stage-fs:active{transform:scale(.94)}
-  .stage-fs.on{background:var(--accent); border-color:var(--accent-dark)}
-
-  /* Mute toggle: bottom-LEFT corner of the stage, mirroring the
-     fullscreen button at the bottom-right — same size, border and
-     backing. The .on state (accent fill, like the fullscreen
-     button's active state) plus the slashed speaker icon mark the
-     muted state; the plain button with the waved speaker icon is
-     unmuted. It shares the fullscreen button's visibility treatment:
-     shown only while the stage controls are on. */
-  .stage-mute{position:absolute; left:12px; bottom:12px; z-index:7; width:50px; height:50px; border-radius:12px; border:1px solid rgba(255,255,255,.4); background:rgba(10,12,14,.66); color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
-  .stage-mute svg{width:23px; height:23px}
-  .stage-mute:active{transform:scale(.94)}
-  .stage-mute.on{background:var(--accent); border-color:var(--accent-dark)}
-  .stage-mute .ic-muted{display:none}
-  .stage-mute.on .ic-muted{display:block}
-  .stage-mute.on .ic-sound{display:none}
-
-  .stage .stage-fs{opacity:0; pointer-events:none; transition:opacity .25s}
-  .stage.controls-on .stage-fs, .stage .stage-fs:focus-visible{opacity:1; pointer-events:auto}
-  .stage .stage-mute{opacity:0; pointer-events:none; transition:opacity .25s}
-  .stage.controls-on .stage-mute, .stage .stage-mute:focus-visible{opacity:1; pointer-events:auto}
-  @media (prefers-reduced-motion: reduce){ .stage .stage-fs{transition:none} .stage .stage-mute{transition:none} }
+  /* Bottom control bar: a full-width strip along the bottom edge of
+     the stage — Play/Pause, Mute and a LIVE indicator on the left,
+     Picture-in-Picture and Fullscreen on the right — over the same
+     bottom gradient the menu mini-bar uses. The round tap zones
+     stay in the middle of the stage; the bar is the stage's only
+     mute and fullscreen control (the old corner buttons are gone),
+     and every bar button drives the same handler and state as the
+     rest of the player. Like the tap zones, the bar shows only
+     while the stage controls are on, and it is hidden in the menu
+     mini-player dock (see the dock rules above), where the
+     mini-bar is the control row. */
+  .stage-bar{
+    position:absolute; left:0; right:0; bottom:0; z-index:6;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:7px 10px; color:#fff;
+    background:linear-gradient(to bottom, rgba(5,7,9,0), rgba(5,7,9,.85) 45%);
+  }
+  .bar-group{display:flex; align-items:center; gap:4px; min-width:0}
+  .bar-btn{width:42px; height:42px; flex:none; border-radius:10px; border:0; background:transparent; color:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0}
+  .bar-btn svg{width:24px; height:24px}
+  .bar-btn:active{transform:scale(.92)}
+  .bar-btn.on{background:rgba(255,255,255,.22)}
+  /* The bar's mute button swaps its icon in the muted state,
+     driven by the .on class from syncMuteUI; it keeps the neutral
+     transparent fill of the other bar buttons (no accent fill). */
+  .bar-mute .ic-muted{display:none}
+  .bar-mute.on{background:transparent}
+  .bar-mute.on .ic-muted{display:block}
+  .bar-mute.on .ic-sound{display:none}
+  .bar-live{display:inline-flex; align-items:center; gap:6px; margin-left:6px; font-size:13px; font-weight:700; letter-spacing:.13em}
+  .bar-live i{width:8px; height:8px; flex:none; border-radius:50%; background:var(--accent); box-shadow:0 0 0 0 rgba(229,72,77,.5); animation:pulse 1.8s infinite}
+  @media (prefers-reduced-motion: reduce){ .bar-live i{animation:none} }
+  .stage .stage-bar{opacity:0; pointer-events:none; transition:opacity .25s}
+  .stage.controls-on .stage-bar, .stage .stage-bar:focus-within{opacity:1; pointer-events:auto}
+  @media (prefers-reduced-motion: reduce){ .stage .stage-bar{transition:none} }
 
   .stage video{width:100%; height:100%; display:block; background:#000; object-fit:contain}
 
-  .stage .tapzone{position:absolute; top:50%; transform:translateY(-50%); height:112px; max-height:100%; width:22%; z-index:3; background:transparent; border:0; color:#fff; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .25s}
+  /* The tap zones anchor at 40% rather than dead centre, keeping
+     every zone's centre clear of the bottom control bar on the
+     short in-page stage while the zones stay tall, centred hit
+     areas. */
+  .stage .tapzone{position:absolute; top:40%; transform:translateY(-50%); height:112px; max-height:100%; width:22%; z-index:3; background:transparent; border:0; color:#fff; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .25s}
   .stage .tapzone.left{left:0} .stage .tapzone.right{right:0}
 
   .stage .tapzone.center{left:50%; right:auto; width:36%; transform:translate(-50%,-50%)}
-  .stage .tapzone span{background:rgba(0,0,0,.55); border-radius:50%; width:64px; height:64px; display:flex; align-items:center; justify-content:center}
-  .stage .tapzone svg{width:30px;height:30px}
+  /* The round icon badges inside the tap zones are not shown:
+     the zones themselves stay in place and fully tappable —
+     left = Previous channel, centre = Play/Pause, right = Next
+     channel — they just draw nothing over the video. */
+  .stage .tapzone span{display:none}
   .stage.controls-on .tapzone{opacity:1; pointer-events:auto}
   .stage .tapzone:focus-visible{opacity:1; pointer-events:auto}
-  @media (hover:none){ .stage .tapzone span{width:52px;height:52px} }
   @media (prefers-reduced-motion: reduce){ .stage .tapzone{transition:none} }
   .spinner{position:absolute; inset:0; display:none; align-items:center; justify-content:center; z-index:4; pointer-events:none}
   .spinner.on{display:flex}
@@ -280,7 +295,7 @@
   .tapplay .tp-label{font-family:"Barlow Condensed",sans-serif; font-size:27px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; line-height:1}
   .tapplay .tp-name{font-size:15px; font-weight:600; color:rgba(255,255,255,.88); max-width:88%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 
-  .soundpill{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:9; display:none; align-items:center; gap:8px; background:var(--accent); color:#fff; border:1px solid var(--accent-dark); border-radius:999px; padding:12px 22px; font:inherit; font-size:16px; font-weight:700; box-shadow:0 10px 26px rgba(0,0,0,.5); cursor:pointer; white-space:nowrap}
+  .soundpill{position:absolute; left:50%; bottom:70px; transform:translateX(-50%); z-index:9; display:none; align-items:center; gap:8px; background:var(--accent); color:#fff; border:1px solid var(--accent-dark); border-radius:999px; padding:12px 22px; font:inherit; font-size:16px; font-weight:700; box-shadow:0 10px 26px rgba(0,0,0,.5); cursor:pointer; white-space:nowrap}
   .soundpill.on{display:inline-flex}
   .soundpill:active{transform:translateX(-50%) scale(.96)}
 
@@ -640,13 +655,23 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.3 5h2.2v14h-2.2zM4.5 5.6v12.8L15 12z"/></svg>
           </button>
         </div>
-        <button class="stage-mute" id="btnMuteStage" type="button" title="Mute — keep every channel muted" aria-label="Mute" aria-pressed="false">
-          <svg class="ic-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>
-          <svg class="ic-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
-        </button>
-        <button class="stage-fs" id="btnFsStage" type="button" title="Full screen" aria-label="Full screen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
-        </button>
+        <div class="stage-bar" id="stageBar">
+          <div class="bar-group">
+            <button class="bar-btn" id="btnBarPlay" type="button" title="Play or pause" aria-label="Play or pause">
+              <svg id="barPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.8v14.4c0 .8.9 1.3 1.6.9l11-7.2a1.05 1.05 0 0 0 0-1.8l-11-7.2C7.9 3.5 7 4 7 4.8z"/></svg>
+            </button>
+            <button class="bar-btn bar-mute" id="btnBarMute" type="button" title="Mute — keep every channel muted" aria-label="Mute" aria-pressed="false">
+              <svg class="ic-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>
+              <svg class="ic-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            </button>
+            <span class="bar-live" title="Live stream"><i></i>LIVE</span>
+          </div>
+          <div class="bar-group">
+            <button class="bar-btn" id="btnBarFs" type="button" title="Full screen" aria-label="Full screen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
       </div>
 
@@ -2978,6 +3003,14 @@
       : '<path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/>';
     $('miniPlayIcon').innerHTML = path;
     $('centerPlayIcon').innerHTML = path;
+    // The bottom control bar's Play/Pause button shows the same icon.
+    var barIcon = $('barPlayIcon');
+    if (barIcon) barIcon.innerHTML = path;
+    var barPlayBtn = $('btnBarPlay');
+    if (barPlayBtn){
+      barPlayBtn.setAttribute('aria-label', video.paused ? 'Play' : 'Pause');
+      barPlayBtn.title = video.paused ? 'Play' : 'Pause';
+    }
   }
 
   function updateNowPlaying(){
@@ -3298,17 +3331,19 @@
     hideSoundPill();
     if (video.paused && state.now && !state.userPaused) attemptPlay(playSeq, 'tap-for-sound');
   });
-  // Mute toggle (bottom-left of the stage): a persistent preference.
-  // While on, every channel load starts muted (see playChannel) and
-  // the "Tap for sound" pill stays hidden; toggling applies to the
-  // currently playing channel immediately, with no reload.
+  // Mute toggle (the bottom bar's mute button): a persistent
+  // preference. While on, every channel load starts muted (see
+  // playChannel) and the "Tap for sound" pill stays hidden;
+  // toggling applies to the currently playing channel immediately,
+  // with no reload.
   function syncMuteUI(){
-    var b = $('btnMuteStage');
-    if (!b) return;
-    b.classList.toggle('on', !!state.mutePref);
-    b.setAttribute('aria-pressed', state.mutePref ? 'true' : 'false');
-    b.setAttribute('aria-label', state.mutePref ? 'Unmute' : 'Mute');
-    b.title = state.mutePref ? 'Muted — tap for sound' : 'Mute — keep every channel muted';
+    var bb = $('btnBarMute');
+    if (bb){
+      bb.classList.toggle('on', !!state.mutePref);
+      bb.setAttribute('aria-pressed', state.mutePref ? 'true' : 'false');
+      bb.setAttribute('aria-label', state.mutePref ? 'Unmute' : 'Mute');
+      bb.title = state.mutePref ? 'Muted — tap for sound' : 'Mute — keep every channel muted';
+    }
   }
   function setMutePref(on){
     state.mutePref = !!on;
@@ -3319,7 +3354,6 @@
     saveState();
     toast(state.mutePref ? 'Muted — channels will play without sound.' : 'Sound on.');
   }
-  $('btnMuteStage').addEventListener('click', function(){ setMutePref(!state.mutePref); });
   // The tap zones ignore clicks inside the short window after a
   // fullscreen exit (see the exit guard at the swipe handler below):
   // the click Safari synthesises at the end of the swipe-down exit
@@ -3415,11 +3449,12 @@
   }
   function syncFsUI(){
     var on = fsIsActive();
-    var b = $('btnFsStage');
-    if (b){
-      b.classList.toggle('on', on);
-      b.title = on ? 'Exit full screen' : 'Full screen';
-      b.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+    // The bottom bar's fullscreen button carries the state.
+    var bb = $('btnBarFs');
+    if (bb){
+      bb.classList.toggle('on', on);
+      bb.title = on ? 'Exit full screen' : 'Full screen';
+      bb.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
     }
   }
   function fsFailToast(){
@@ -3491,7 +3526,17 @@
   function toggleFullscreen(){
     if (fsIsActive()) exitFullscreen(); else enterFullscreen();
   }
-  $('btnFsStage').addEventListener('click', toggleFullscreen);
+  // Bottom control bar: the same actions as the tap zones, in one
+  // row along the bottom of the stage. Play/Pause goes through
+  // togglePlay (behind the same fullscreen-exit guard the tap zones
+  // use), Mute through setMutePref — the shared mute preference —
+  // and Fullscreen through toggleFullscreen. There is no PiP button
+  // in the bar: picture-in-picture stays available the native way
+  // (fullscreen, then swipe up), and the auto-PiP / call-pause gate
+  // machinery below is untouched.
+  $('btnBarPlay').addEventListener('click', function(){ if (!fsExitGuardActive()) togglePlay(); });
+  $('btnBarMute').addEventListener('click', function(){ setMutePref(!state.mutePref); });
+  $('btnBarFs').addEventListener('click', toggleFullscreen);
   document.addEventListener('fullscreenchange', function(){
     syncFsUI();
     if (fsIsActive()) lockLandscape();
@@ -3575,7 +3620,18 @@
     if (document.pictureInPictureElement) return true;
     return video.webkitPresentationMode === 'picture-in-picture';
   }
-  function syncPipUI(){   }
+  function syncPipUI(){
+    // The bottom bar no longer has a PiP button; kept as a no-op
+    // hook for the PiP state listeners below.
+    var b = $('btnBarPip');
+    if (!b) return;
+    var on = false;
+    try { on = pipIsActive(); } catch(e){}
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.title = on ? 'Exit picture in picture' : 'Picture in picture';
+    b.setAttribute('aria-label', on ? 'Exit picture in picture' : 'Picture in picture');
+  }
   function enterPip(auto){
     var fail = function(){ if (!auto) toast('Picture-in-picture is not available for this stream in this browser.'); };
     try {
