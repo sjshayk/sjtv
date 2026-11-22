@@ -103,14 +103,10 @@
   }
 
   .topbar{display:flex; align-items:center; gap:12px; flex-wrap:nowrap; margin-bottom:8px}
-  .live-dot{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; letter-spacing:.14em; text-transform:uppercase}
-  .live-dot i{width:9px;height:9px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 0 rgba(229,72,77,.5); animation:pulse 1.8s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.45)}70%{box-shadow:0 0 0 9px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
-  @media (prefers-reduced-motion: reduce){ .live-dot i{animation:none} }
   .topbar .spacer{flex:1}
   .pill{font-size:13px; font-weight:600; color:var(--muted); background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:6px 12px}
   .pill b{color:var(--text)}
-  .live-dot{flex:none}
   #srcPill{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 
   #wakeBtn{flex:none; width:38px; height:38px; padding:0; justify-content:center; border-radius:50%}
@@ -174,18 +170,6 @@
   .menu-panel .panel{border:0; box-shadow:none; background:transparent; border-radius:0}
   .menu-panel .panel-pad{padding:2px 2px 14px}
   .menu-panel .side section + section{border-top:1px solid var(--line); padding-top:14px}
-
-  /* While the Menu is open (phone layout), the SJTV LIVE mark in the
-     top bar is hidden: the name already sits at the top of the main
-     screen, so repeating it over the open Menu is redundant.
-     visibility (not display) keeps the bar's layout exactly as it
-     was, so the playlist pill and the buttons never shift when the
-     Menu opens or closes. setMenu toggles the body class. The wide
-     layout is untouched — there the mark sits centred over the
-     video column, not over the Menu. */
-  @media (max-width:1023.98px){
-    body.menu-open .topbar .live-dot{visibility:hidden}
-  }
 
   .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
   .panel-pad{padding:11px 12px}
@@ -610,7 +594,6 @@
 
   <div class="pinned-top">
   <div class="topbar">
-    <span class="live-dot"><i></i> SJTV LIVE</span>
     <span class="pill" id="srcPill">World News</span>
     <div class="spacer"></div>
     <button class="btn" id="guideBtn" type="button" title="TV Guide" aria-label="TV Guide">
@@ -3880,9 +3863,6 @@
   function setMenu(open){
     if (!menuPanelEl || !menuBtnEl) return;
     menuPanelEl.hidden = !open;
-    // Hides the top bar's SJTV LIVE mark while the Menu is open
-    // (see the body.menu-open rule in the Menu panel CSS above).
-    document.body.classList.toggle('menu-open', open);
     menuBtnEl.classList.toggle('active', open);
     menuBtnEl.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open){
